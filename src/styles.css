@@ -1,0 +1,9 @@
+body { font-family: Inter, Roboto, Arial, sans-serif; background: #f5f7fb; margin:0 }
+.header { background:#0f172a; color:white; padding:1rem; font-size:1.1rem }
+.app { display:flex; flex-direction:column; height:100vh }
+.main { display:flex; gap:1rem; padding:1rem }
+.card { background:white; border-radius:12px; padding:1rem; box-shadow:0 6px 18px rgba(12,14,20,0.06); width:50% }
+.row { display:flex; gap:0.6rem; margin-top:0.8rem }
+input { width:100%; padding:0.5rem; margin:0.4rem 0; border-radius:8px; border:1px solid #e5e7eb }
+button { padding:0.6rem 0.9rem; border-radius:8px; border:none; cursor:pointer; background:#0f172a; color:white }
+.log { background:#0b1220; color:#d1d5db; padding:0.6rem; border-radius:8px; height:180px; overflow:auto }
