@@ -62,6 +62,8 @@ export async function createTxHandler(req, res) {
 }
 
 export async function signTxHandler(req, res) {
+  console.log('=== SIGN TRANSACTION HANDLER ===');
+  console.log('Request body:', JSON.stringify(req.body, null, 2));
   try {
     const { safeTxHash } = req.body;
 
@@ -85,8 +87,18 @@ export async function signTxHandler(req, res) {
 }
 
 export async function executeTxHandler(req, res) {
+  console.log(req);
+  console.log('=== EXECUTE TRANSACTION HANDLER ===');
+  console.log('Request body:', JSON.stringify(req.body, null, 2));
   try {
     const { safeTransactionData, signatures, executorPk } = req.body;
+
+    console.log('Safe transaction data:', safeTransactionData);
+    console.log('Signatures array:', signatures);
+    console.log('Signatures type:', typeof signatures);
+    console.log('Signatures length:', signatures?.length);
+    console.log('Executor PK:', executorPk);
+
     if (!safeTransactionData || !Array.isArray(signatures)) {
       return res.status(400).json({ error: 'Missing safeTransactionData or signatures[]' });
     }
@@ -97,9 +109,20 @@ export async function executeTxHandler(req, res) {
     if (!executor) {
       return res.status(500).json({ error: 'No executor private key available' });
     }
+
+    const sanitizedSignatures = signatures.filter(sig => typeof sig === 'string' && sig.startsWith('0x') && sig.length >= 132);
+    
+    console.log('Signatures:', signatures);
+    console.log('Sanitized signatures:', sanitizedSignatures);
+
+    if (sanitizedSignatures.length < 2) {
+      throw new Error('Invalid signatures: Each must be a 0x-prefixed ECDSA signature');
+    }
+
+
     const result = await executeTransaction(
       safeTransactionData,
-      signatures,
+      sanitizedSignatures,
       executor
     );
     return res.json({

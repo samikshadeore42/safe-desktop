@@ -18,6 +18,12 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(bodyParser.json());
 
+// Request logging middleware
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  next();
+});
+
 // Serve static helper pages for MetaMask
 app.use(express.static(path.join(__dirname, '../public')));
 

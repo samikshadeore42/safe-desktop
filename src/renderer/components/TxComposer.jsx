@@ -5,8 +5,9 @@ import {
   createSafeTx,
   signLocallyWithSDK,
   getServerSignature,
-  executeTransaction,
-  getLocalSignerAddress
+  // executeTransaction,
+  exeTxn,
+  getLocalSignerAddress,
 } from '../services/safe-sdk.service';
 
 export default function TxComposerSDK() {
@@ -65,6 +66,7 @@ export default function TxComposerSDK() {
       const serverSig = await getServerSignature(txData.safeTxHash);
       sigs.push(serverSig);
       setStatus('Signing locally (owner2)...');
+      console.log(txData.safeTxHash);
       const localSig = await signLocallyWithSDK(txData.safeTxHash);
       sigs.push(localSig);
       setSignatures(sigs);
@@ -78,13 +80,19 @@ export default function TxComposerSDK() {
   const handleExecute = async () => {
     try {
       setError('');
+      console.log('Attempting execution with signatures:', signatures);
+      if (!signatures.every(sig => typeof sig === 'string' && sig.startsWith('0x') && sig.length >= 132)) {
+        setError('At least one signature is invalid. Please collect both signatures again.');
+        return;
+      }
       setStatus('Executing transaction...');
       if (!txData || signatures.length === 0) {
         throw new Error('Missing transaction data or signatures');
       }
-      const result = await executeTransaction(
+      const result = await exeTxn(
         txData.safeTransactionData,
-        signatures
+        signatures,
+        txData.safeTxHash
       );
       setStatus(`✅ Transaction executed! TxHash: ${result.txHash}`);
       setTimeout(() => loadSafeInfo(), 2000);

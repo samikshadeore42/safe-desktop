@@ -14,12 +14,14 @@ export function recoverSignerFromHash(hash, signature) {
   return ethers.utils.recoverAddress(hash, signature)
 }
 
-export function packSignatures(signatures) {
-  // signatures: [{ signer, signature }]
-  const sorted = signatures.slice().sort((a, b) => a.signer.toLowerCase().localeCompare(b.signer.toLowerCase()))
-  const parts = sorted.map(s => {
-    const sig = normalizeV(s.signature).slice(2)
-    return sig
-  })
-  return '0x' + parts.join('')
-}
+// export function packSignatures(signatures) {
+//   // signatures: [{ signer, signature }]
+//   console.log('signatures:', signatures)
+//   const sorted = signatures.slice().sort((a, b) => a.signer.toLowerCase().localeCompare(b.signer.toLowerCase()))
+//   console.log('sorted signatures:', sorted)
+//   const parts = sorted.map(s => {
+//     const sig = normalizeV(s.signature).slice(2)
+//     return sig
+//   })
+//   return '0x' + parts.join('')
+// }
