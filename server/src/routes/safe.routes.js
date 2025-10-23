@@ -19,7 +19,7 @@ router.post('/create', createTxHandler);
 router.post('/sign', signTxHandler);
 
 // POST /safe/execute - Execute transaction with signatures
-router.post('/execute', executeTxHandler);
+// router.post('/execute', executeTxHandler);
 
 // POST /safe/submit - Legacy combined endpoint
 router.post('/submit', submitTxHandler);

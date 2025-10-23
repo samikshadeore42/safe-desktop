@@ -173,14 +173,6 @@ export async function exeTxn(safeTransactionData, signatures, safeTxHash) {
   console.log("Safe threshold:", safeThreshold);
   console.log("Safe current nonce:", safeNonce.toString());
   console.log("Transaction nonce:", safeTransactionData.nonce);
-
-  // Check if recovered signers are Safe owners
-  const recoveredSigners = [
-    "0x9635367c4932CF5C52d66f0d1f9b0C319daB8Af7",
-    "0xac5E42ced0E47435D2CC2fEe089Fbde157B6110C",
-  ];
-  console.log("Recovered signers:", recoveredSigners);
-
   
   // Check Safe balance
   const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
@@ -190,13 +182,6 @@ export async function exeTxn(safeTransactionData, signatures, safeTxHash) {
     ethers.utils.formatEther(safeBalance),
     "ETH"
   );
-  
-  for (const signer of recoveredSigners) {
-    const isOwner = safeOwners.some(
-      (owner) => owner.toLowerCase() === signer.toLowerCase()
-    );
-    console.log(`${signer} is owner:`, isOwner);
-  }
   
   const isValid = await protocolKit.isValidTransaction(safeTransaction);
   console.log("Transaction valid:", isValid);

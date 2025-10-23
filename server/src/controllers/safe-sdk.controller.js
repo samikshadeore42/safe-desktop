@@ -86,56 +86,56 @@ export async function signTxHandler(req, res) {
   }
 }
 
-export async function executeTxHandler(req, res) {
-  console.log(req);
-  console.log('=== EXECUTE TRANSACTION HANDLER ===');
-  console.log('Request body:', JSON.stringify(req.body, null, 2));
-  try {
-    const { safeTransactionData, signatures, executorPk } = req.body;
+// export async function executeTxHandler(req, res) {
+//   console.log(req);
+//   console.log('=== EXECUTE TRANSACTION HANDLER ===');
+//   console.log('Request body:', JSON.stringify(req.body, null, 2));
+//   try {
+//     const { safeTransactionData, signatures, executorPk } = req.body;
 
-    console.log('Safe transaction data:', safeTransactionData);
-    console.log('Signatures array:', signatures);
-    console.log('Signatures type:', typeof signatures);
-    console.log('Signatures length:', signatures?.length);
-    console.log('Executor PK:', executorPk);
+//     console.log('Safe transaction data:', safeTransactionData);
+//     console.log('Signatures array:', signatures);
+//     console.log('Signatures type:', typeof signatures);
+//     console.log('Signatures length:', signatures?.length);
+//     console.log('Executor PK:', executorPk);
 
-    if (!safeTransactionData || !Array.isArray(signatures)) {
-      return res.status(400).json({ error: 'Missing safeTransactionData or signatures[]' });
-    }
-    if (signatures.length === 0) {
-      return res.status(400).json({ error: 'No signatures provided' });
-    }
-    const executor = executorPk || process.env.EXECUTOR_PK || SERVER_SIGNER_PK;
-    if (!executor) {
-      return res.status(500).json({ error: 'No executor private key available' });
-    }
+//     if (!safeTransactionData || !Array.isArray(signatures)) {
+//       return res.status(400).json({ error: 'Missing safeTransactionData or signatures[]' });
+//     }
+//     if (signatures.length === 0) {
+//       return res.status(400).json({ error: 'No signatures provided' });
+//     }
+//     const executor = executorPk || process.env.EXECUTOR_PK || SERVER_SIGNER_PK;
+//     if (!executor) {
+//       return res.status(500).json({ error: 'No executor private key available' });
+//     }
 
-    const sanitizedSignatures = signatures.filter(sig => typeof sig === 'string' && sig.startsWith('0x') && sig.length >= 132);
+//     const sanitizedSignatures = signatures.filter(sig => typeof sig === 'string' && sig.startsWith('0x') && sig.length >= 132);
     
-    console.log('Signatures:', signatures);
-    console.log('Sanitized signatures:', sanitizedSignatures);
+//     console.log('Signatures:', signatures);
+//     console.log('Sanitized signatures:', sanitizedSignatures);
 
-    if (sanitizedSignatures.length < 2) {
-      throw new Error('Invalid signatures: Each must be a 0x-prefixed ECDSA signature');
-    }
+//     if (sanitizedSignatures.length < 2) {
+//       throw new Error('Invalid signatures: Each must be a 0x-prefixed ECDSA signature');
+//     }
 
 
-    const result = await executeTransaction(
-      safeTransactionData,
-      sanitizedSignatures,
-      executor
-    );
-    return res.json({
-      status: 'executed',
-      txHash: result.txHash,
-      receipt: result.receipt
-    });
-  } catch (err) {
-    return res.status(500).json({
-      error: err.message || 'Failed to execute transaction'
-    });
-  }
-}
+//     const result = await executeTransaction(
+//       safeTransactionData,
+//       sanitizedSignatures,
+//       executor
+//     );
+//     return res.json({
+//       status: 'executed',
+//       txHash: result.txHash,
+//       receipt: result.receipt
+//     });
+//   } catch (err) {
+//     return res.status(500).json({
+//       error: err.message || 'Failed to execute transaction'
+//     });
+//   }
+// }
 
 export async function submitTxHandler(req, res) {
   try {
