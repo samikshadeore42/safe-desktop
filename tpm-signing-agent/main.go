@@ -1,48 +1,54 @@
 package main
 
 import (
-	"bytes"
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/sha256"
 	"encoding/hex" // We'll use hex instead of base64
 	"flag"
-	"fmt"
 	"io"
 	"log"
 	"math/big"
 	"net"
-	"os"
 	"slices"
 	"strings"
 
-	// --- ADDED ETHEREUM LIBRARIES ---
+	// --- ETHEREUM LIBRARIES FOR SIGNATURE COMPATIBILITY ---
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
-	// ------------------------------------
+	// -------------------------------------------------------
 
+	// --- TPM LIBRARIES ---
 	"github.com/google/go-tpm/tpm2"
 	"github.com/google/go-tpm/tpmutil"
 	"github.com/salrashid123/tpmsigner"
+	// ---------------------
 )
 
+// ===== CONFIGURATION VARIABLES =====
+// Command-line flags for TPM device and key handle
 var (
 	tpmPath = flag.String("tpm-path", "/dev/tpmrm0", "Path to the TPM device (character device or a Unix socket).")
 	handle  = flag.Uint("handle", 0x81000000, "ecc Handle value") // Use your ECC handle
 )
 
+// List of valid TPM device paths
 var TPMDEVICES = []string{"/dev/tpm0", "/dev/tpmrm0"}
 
+// ===== TPM CONNECTION HELPER =====
+// Opens either a hardware TPM device or TCP connection to TPM simulator
 func OpenTPM(path string) (io.ReadWriteCloser, error) {
 	if slices.Contains(TPMDEVICES, path) {
-		return tpmutil.OpenTPM(path)
+		return tpmutil.OpenTPM(path) // Hardware TPM
 	} else {
-		return net.Dial("tcp", path)
+		return net.Dial("tcp", path) // TPM simulator over TCP
 	}
 }
 
 func main() {
 	flag.Parse()
 
+	// ===== STEP 1: CONNECT TO TPM HARDWARE =====
+	// This establishes connection to the TPM chip on your computer
 	rwc, err := OpenTPM(*tpmPath)
 	if err != nil {
 		log.Fatalf("can't open TPM %q: %v", *tpmPath, err)
@@ -53,12 +59,14 @@ func main() {
 		}
 	}()
 
-	// 1. Initialize the TPM Signer
+	// ===== STEP 2: INITIALIZE TPM SIGNER =====
+	// This loads the private key from the TPM using the handle
+	// ECCRawOutput=true is CRITICAL - without it, signatures are DER-encoded
 	log.Println("Connecting to TPM and loading key handle...")
 	tpmSigner, err := tpmsigner.NewTPMCrypto(&tpmsigner.TPM{
 		TpmDevice:    rwc,
 		Handle:       tpm2.TPMHandle(*handle),
-		ECCRawOutput: true, // CRITICAL: Must be true for Ethereum
+		ECCRawOutput: true, // CRITICAL: Must be true for Ethereum compatibility
 	})
 	if err != nil {
 		log.Fatalf("Failed to initialize TPM signer: %v", err)
@@ -69,18 +77,21 @@ func main() {
 	// You only do this once, or when your app needs to know its address.
 	// -----------------------------------------------------------------
 
+	// ===== STEP 3: EXTRACT PUBLIC KEY FROM TPM =====
 	// Get the standard Go ecdsa.PublicKey from the signer
 	pubKey, ok := tpmSigner.Public().(*ecdsa.PublicKey)
 	if !ok {
 		log.Fatal("Could not get public key from TPM signer")
 	}
 
+	// ===== STEP 4: CONVERT TO ETHEREUM FORMAT =====
 	// Convert it to a go-ethereum compatible public key
 	ethPubKey := ethcrypto.FromECDSAPub(pubKey)
 	if err != nil {
 		log.Fatalf("Failed to convert to Ethereum public key: %v", err)
 	}
 
+	// ===== STEP 5: DERIVE ETHEREUM ADDRESS =====
 	// Derive your Ethereum address from the public key
 	ethAddress := ethcrypto.PubkeyToAddress(*pubKey)
 
@@ -92,6 +103,7 @@ func main() {
 	// PART 2: TAKE IN TRANSACTION DETAILS (AS A HASH)
 	// -----------------------------------------------------------------
 
+	// ===== STEP 6: PREPARE EXAMPLE TRANSACTION HASH =====
 	// In your real server, this hash will come from your frontend (e.g., in an HTTP request).
 	// Your frontend (using ethers.js/viem) is responsible for creating the transaction
 	// and calculating this Keccak-256 hash.
@@ -102,15 +114,20 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to decode tx hash: %v", err)
 	}
+	// Note: txHashBytes is used in the legacy code section below (after os.Exit)
+	_ = txHashBytes // Suppress unused variable warning
 
 	log.Printf("\nSigning transaction hash: %s", txHashHex)
 
-	// SIMPLE TEST: What address does our TPM actually control?
+	// ===== STEP 7: SIMPLE SIGNING TEST =====
+	// This test signs a simple message to verify TPM signing works
+	// and to understand what address the TPM actually controls
 	log.Printf("\n=== SIMPLE ADDRESS TEST ===")
 	testMsg := "test message"
 	testMsgHash := ethcrypto.Keccak256Hash([]byte(testMsg))
 	log.Printf("Test message hash: %s", testMsgHash.Hex())
 
+	// Sign the test message hash with TPM
 	testSigRaw, err := tpmSigner.Sign(nil, testMsgHash.Bytes(), crypto.SHA256)
 	if err != nil {
 		log.Fatalf("Failed to sign test message: %v", err)
@@ -118,13 +135,15 @@ func main() {
 
 	log.Printf("Test signature raw: %s", hex.EncodeToString(testSigRaw))
 
-	// Normalize test signature
+	// ===== STEP 8: NORMALIZE SIGNATURE FOR ETHEREUM =====
+	// Ethereum requires signatures to have low 's' values (s <= N/2)
+	// This prevents signature malleability attacks
 	rTestSig := new(big.Int).SetBytes(testSigRaw[:32])
 	sTestSig := new(big.Int).SetBytes(testSigRaw[32:64])
 	testOrder := ethcrypto.S256().Params().N
 	testHalf := new(big.Int).Div(testOrder, big.NewInt(2))
 	if sTestSig.Cmp(testHalf) > 0 {
-		sTestSig.Sub(testOrder, sTestSig)
+		sTestSig.Sub(testOrder, sTestSig) // Convert high s to low s
 	}
 
 	normalizedTestSig := make([]byte, 64)
@@ -137,7 +156,7 @@ func main() {
 	testSigWithV := make([]byte, 65)
 	copy(testSigWithV, normalizedTestSig)
 
-	for v := 0; v <= 1; v++ {
+	for v := 27; v <= 28; v++ {
 		testSigWithV[64] = byte(v)
 		recoveredPubKey, err := ethcrypto.SigToPub(testMsgHash.Bytes(), testSigWithV)
 		if err == nil {
@@ -151,11 +170,13 @@ func main() {
 	// COMPREHENSIVE SIGNATURE VERIFICATION
 	log.Printf("\n=== 🔍 SIGNATURE VERIFICATION STEPS ===")
 
+	// ===== STEP 9: SIGNATURE FORMAT VERIFICATION =====
 	// Step 1: Basic format verification
 	log.Printf("✅ Step 1: Signature Format")
 	log.Printf("   Raw signature length: %d bytes (expected: 64)", len(normalizedTestSig))
 	log.Printf("   Format: [r(32 bytes)][s(32 bytes)]")
 
+	// ===== STEP 10: MATHEMATICAL SIGNATURE VERIFICATION =====
 	// Step 2: ECDSA mathematical verification
 	log.Printf("✅ Step 2: ECDSA Mathematical Verification")
 	rCheck := new(big.Int).SetBytes(normalizedTestSig[:32])
@@ -290,167 +311,4 @@ func main() {
 	log.Printf("Use this 64-byte signature: 0x%s", hex.EncodeToString(normalizedTestSig))
 	log.Printf("TPM Address: %s", ethAddress.Hex())
 
-	// EXIT HERE - WE HAVE COMPREHENSIVE VERIFICATION
-	os.Exit(0)
-
-	// -----------------------------------------------------------------
-	// PART 3: SIGN THE HASH AND OUTPUT THE ETHEREUM SIGNATURE
-	// -----------------------------------------------------------------
-
-	// Sign the 32-byte hash.
-	// The issue is that txHashBytes is already a hash, but TPM will hash it again with SHA256.
-	// We need to use a direct signing approach or adjust our expectation.
-	// For now, let's see what hash the TPM is actually signing.
-	rawSignature, err := tpmSigner.Sign(nil, txHashBytes, crypto.SHA256)
-	if err != nil {
-		log.Fatalf("TPM signing failed: %v", err)
-	}
-
-	if len(rawSignature) != 64 {
-		log.Fatalf("Invalid signature length from TPM: got %d, want 64", len(rawSignature))
-	}
-	log.Println("TPM returned 64-byte [r][s] signature.")
-
-	// --- This is the "Recovery ID" (v) calculation ---
-	// The TPM gives us `r` and `s`. We must find `v` (0 or 1).
-
-	// // Create the 65-byte [r][s][v] signature slice
-	// finalSignature := make([]byte, 65)
-	// copy(finalSignature, rawSignature) // Copy [r] (32 bytes) and [s] (32 bytes)
-	r := new(big.Int).SetBytes(rawSignature[:32])
-	s := new(big.Int).SetBytes(rawSignature[32:64])
-
-	// secp256k1 curve order
-	curveOrder := ethcrypto.S256().Params().N
-
-	// Check if s > N/2 (high s value)
-	halfOrder := new(big.Int).Div(curveOrder, big.NewInt(2))
-	if s.Cmp(halfOrder) > 0 {
-		log.Printf("Normalizing high s value: %s", s.String())
-		// s = N - s (canonical form)
-		s.Sub(curveOrder, s)
-		log.Printf("Normalized s value: %s", s.String())
-	}
-
-	// Rebuild the signature with normalized s
-	normalizedSig := make([]byte, 64)
-	copy(normalizedSig[:32], r.FillBytes(make([]byte, 32)))
-	copy(normalizedSig[32:], s.FillBytes(make([]byte, 32)))
-
-	log.Printf("Normalized signature: %s", hex.EncodeToString(normalizedSig))
-
-	// Create the 65-byte [r][s][v] signature slice using normalized signature
-	finalSignature := make([]byte, 65)
-	copy(finalSignature, normalizedSig) // Use normalized signature instead of rawSignature
-
-	// We need the *uncompressed* public key bytes for this check
-	expectedPubkeyBytes := ethcrypto.FromECDSAPub(pubKey)
-
-	// The TPM is double-hashing our data, so we need to use the double-hashed value for recovery
-	hasher := sha256.New()
-	hasher.Write(txHashBytes)
-	doubleHashedBytes := hasher.Sum(nil)
-
-	log.Printf("Debug Info:")
-	log.Printf("  Expected pubkey length: %d", len(expectedPubkeyBytes))
-	log.Printf("  Expected pubkey: %s", hex.EncodeToString(expectedPubkeyBytes))
-	log.Printf("  Original hash: %s", hex.EncodeToString(txHashBytes))
-	log.Printf("  Double hash (what TPM signed): %s", hex.EncodeToString(doubleHashedBytes))
-	log.Printf("  Raw signature length: %d", len(rawSignature))
-	log.Printf("  Raw signature: %s", hex.EncodeToString(rawSignature))
-
-	// Determine which hash to use by verifying the signature
-	log.Printf("\n--- ECDSA Verification Test ---")
-	rVerify := new(big.Int).SetBytes(normalizedSig[:32])
-	sVerify := new(big.Int).SetBytes(normalizedSig[32:64])
-
-	// Test with original hash
-	validOriginal := ecdsa.Verify(pubKey, txHashBytes, rVerify, sVerify)
-	log.Printf("ECDSA verify with original hash: %v", validOriginal)
-
-	// Test with double hash
-	validDouble := ecdsa.Verify(pubKey, doubleHashedBytes, rVerify, sVerify)
-	log.Printf("ECDSA verify with double hash: %v", validDouble)
-
-	if !validOriginal && !validDouble {
-		log.Fatalf("Signature doesn't verify with either hash - fundamental signing issue")
-	}
-
-	// Determine which hash to use for recovery
-	recoveryHash := txHashBytes
-	if validDouble && !validOriginal {
-		log.Printf("Using double hash for recovery")
-		recoveryHash = doubleHashedBytes
-	} else if validOriginal {
-		log.Printf("Using original hash for recovery")
-		recoveryHash = txHashBytes
-	}
-
-	// Try v = 0
-	finalSignature[64] = 0
-	log.Printf("Trying recovery ID v = 0...")
-	recoveredKey, err := ethcrypto.Ecrecover(recoveryHash, finalSignature)
-	log.Printf("  Recovery result: err=%v", err)
-	if err == nil {
-		log.Printf("  Recovered key length: %d", len(recoveredKey))
-		log.Printf("  Recovered key: %s", hex.EncodeToString(recoveredKey))
-		log.Printf("  Keys match: %v", bytes.Equal(recoveredKey, expectedPubkeyBytes))
-
-		// Let's also check if the Ethereum addresses match
-		if len(recoveredKey) == 65 {
-			recoveredPubKey, err := ethcrypto.UnmarshalPubkey(recoveredKey)
-			if err == nil {
-				recoveredAddr := ethcrypto.PubkeyToAddress(*recoveredPubKey)
-				expectedAddr := ethcrypto.PubkeyToAddress(*pubKey)
-				log.Printf("  Expected address: %s", expectedAddr.Hex())
-				log.Printf("  Recovered address: %s", recoveredAddr.Hex())
-				log.Printf("  Addresses match: %v", recoveredAddr == expectedAddr)
-			}
-		}
-
-		// Let's also check if the Ethereum addresses match
-		if len(recoveredKey) == 65 {
-			recoveredPubKey, err := ethcrypto.UnmarshalPubkey(recoveredKey)
-			if err == nil {
-				recoveredAddr := ethcrypto.PubkeyToAddress(*recoveredPubKey)
-				expectedAddr := ethcrypto.PubkeyToAddress(*pubKey)
-				log.Printf("  Expected address: %s", expectedAddr.Hex())
-				log.Printf("  Recovered address: %s", recoveredAddr.Hex())
-				log.Printf("  Addresses match: %v", recoveredAddr == expectedAddr)
-			}
-		}
-	}
-
-	if err != nil || !bytes.Equal(recoveredKey, expectedPubkeyBytes) {
-		// If it failed, try v = 1
-		log.Printf("Trying recovery ID v = 1...")
-		finalSignature[64] = 1
-		recoveredKey, err = ethcrypto.Ecrecover(recoveryHash, finalSignature)
-		log.Printf("  Recovery result: err=%v", err)
-		if err == nil {
-			log.Printf("  Recovered key length: %d", len(recoveredKey))
-			log.Printf("  Recovered key: %s", hex.EncodeToString(recoveredKey))
-			log.Printf("  Keys match: %v", bytes.Equal(recoveredKey, expectedPubkeyBytes))
-		}
-
-		if err != nil || !bytes.Equal(recoveredKey, expectedPubkeyBytes) {
-			log.Printf("FAILURE: Both v=0 and v=1 failed")
-			log.Printf("This suggests either:")
-			log.Printf("  1. The signature is malformed")
-			log.Printf("  2. The hash being signed is different than expected")
-			log.Printf("  3. The public key format is incorrect")
-			log.Fatalf("Failed to calculate recovery ID. Signature or key is invalid.")
-		}
-	}
-
-	log.Printf("Successfully found recovery ID: v = %d", finalSignature[64])
-
-	log.Println("Successfully calculated recovery ID (v).")
-
-	// You now have the final 65-byte signature!
-	fmt.Println("\n--- 🚀 FINAL ETHEREUM SIGNATURE 🚀 ---")
-	fmt.Printf("0x%s\n", hex.EncodeToString(finalSignature))
-
-	// We can remove the old verification and the ASN.1 section,
-	// as they were just for the original example.
 }
