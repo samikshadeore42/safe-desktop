@@ -4,7 +4,7 @@ import Safe from '@safe-global/protocol-kit';
 const SERVER_URL = 'http://localhost:3000';
 
 // This is for the second owner who signs locally
-const LOCAL_SIGNER_PK = import.meta.env.WALLET_B_PK;
+const LOCAL_SIGNER_PK = import.meta.env.VITE_OWNER2_PK;
 
 const RPC_URL = import.meta.env.VITE_RPC_URL;
 const SAFE_ADDRESS = import.meta.env.VITE_SAFE_ADDRESS;

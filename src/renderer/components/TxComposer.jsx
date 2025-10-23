@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { ethers } from 'ethers';
 import {
   getSafeInfo,
   createSafeTx,
@@ -38,7 +39,14 @@ export default function TxComposerSDK() {
       setError('');
       setStatus('Creating transaction...');
       setSignatures([]);
-      const result = await createSafeTx(formData);
+
+      let valueInWei = ethers.utils.parseEther(formData.value).toString();
+      const result = await createSafeTx({
+        to: formData.to,
+        value: valueInWei,
+        data: formData.data
+      });
+      
       setTxData(result);
       setStatus('✅ Transaction created! Ready for signing.');
     } catch (err) {
