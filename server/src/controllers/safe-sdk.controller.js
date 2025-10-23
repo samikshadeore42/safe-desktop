@@ -1,0 +1,151 @@
+import 'dotenv/config';
+import { ethers } from 'ethers';
+import {
+  createSafeTransaction,
+  signTransactionHash,
+  executeTransaction,
+  getSafeInfo
+} from '../services/safe-sdk.service.js';
+
+const SERVER_SIGNER_PK = process.env.OWNER1_PK || process.env.SERVER_SIGNER_PK;
+
+if (!SERVER_SIGNER_PK) {
+  console.warn('⚠️  No OWNER1_PK or SERVER_SIGNER_PK found - some endpoints may fail');
+}
+
+export async function getSafeInfoHandler(req, res) {
+  try {
+    if (!SERVER_SIGNER_PK) {
+      return res.status(500).json({
+        error: 'SERVER_SIGNER_PK not configured'
+      });
+    }
+
+    const info = await getSafeInfo(SERVER_SIGNER_PK);
+    return res.json(info);
+  } catch (err) {
+    return res.status(500).json({
+      error: err.message || 'Failed to get Safe info'
+    });
+  }
+}
+
+export async function createTxHandler(req, res) {
+  try {
+    const { to, value, data } = req.body;
+
+    if (!to) {
+      return res.status(400).json({ error: 'Missing required field: "to"' });
+    }
+    if (!ethers.utils.isAddress(to)) {
+      return res.status(400).json({ error: 'Invalid "to" address format' });
+    }
+    if (!SERVER_SIGNER_PK) {
+      return res.status(500).json({ error: 'SERVER_SIGNER_PK not configured' });
+    }
+
+    const result = await createSafeTransaction(
+      { to, value: value || '0', data: data || '0x' },
+      SERVER_SIGNER_PK
+    );
+
+    return res.json({
+      safeTxHash: result.safeTxHash,
+      safeTransactionData: result.safeTransactionData
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      error: err.message || 'Failed to create Safe transaction'
+    });
+  }
+}
+
+export async function signTxHandler(req, res) {
+  try {
+    const { safeTxHash } = req.body;
+
+    if (!safeTxHash) {
+      return res.status(400).json({ error: 'Missing safeTxHash' });
+    }
+    if (!SERVER_SIGNER_PK) {
+      return res.status(500).json({ error: 'SERVER_SIGNER_PK not configured' });
+    }
+    const signature = await signTransactionHash(safeTxHash, SERVER_SIGNER_PK);
+    const signerAddress = new ethers.Wallet(SERVER_SIGNER_PK).address;
+    return res.json({
+      signature,
+      signer: signerAddress
+    });
+  } catch (err) {
+    return res.status(500).json({
+      error: err.message || 'Failed to sign transaction'
+    });
+  }
+}
+
+export async function executeTxHandler(req, res) {
+  try {
+    const { safeTransactionData, signatures, executorPk } = req.body;
+    if (!safeTransactionData || !Array.isArray(signatures)) {
+      return res.status(400).json({ error: 'Missing safeTransactionData or signatures[]' });
+    }
+    if (signatures.length === 0) {
+      return res.status(400).json({ error: 'No signatures provided' });
+    }
+    const executor = executorPk || process.env.EXECUTOR_PK || SERVER_SIGNER_PK;
+    if (!executor) {
+      return res.status(500).json({ error: 'No executor private key available' });
+    }
+    const result = await executeTransaction(
+      safeTransactionData,
+      signatures,
+      executor
+    );
+    return res.json({
+      status: 'executed',
+      txHash: result.txHash,
+      receipt: result.receipt
+    });
+  } catch (err) {
+    return res.status(500).json({
+      error: err.message || 'Failed to execute transaction'
+    });
+  }
+}
+
+export async function submitTxHandler(req, res) {
+  try {
+    const { safeTxHash, safeTransactionData, signatures, executeWith } = req.body;
+    if (!safeTxHash || !safeTransactionData || !Array.isArray(signatures)) {
+      return res.status(400).json({
+        error: 'Missing required fields'
+      });
+    }
+    if (executeWith === 'server') {
+      const executorPk = process.env.EXECUTOR_PK || SERVER_SIGNER_PK;
+      if (!executorPk) {
+        return res.status(500).json({ error: 'EXECUTOR_PK not configured' });
+      }
+      const result = await executeTransaction(
+        safeTransactionData,
+        signatures,
+        executorPk
+      );
+      return res.json({
+        status: 'executed',
+        txHash: result.txHash,
+        receipt: result.receipt
+      });
+    }
+    return res.json({
+      status: 'ready',
+      message: 'Signatures validated. Ready for execution via client.',
+      signatureCount: signatures.length
+    });
+  } catch (err) {
+    return res.status(500).json({
+      error: err.message || 'Failed to submit transaction'
+    });
+  }
+}

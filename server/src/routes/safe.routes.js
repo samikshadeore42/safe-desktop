@@ -1,9 +1,27 @@
 import express from 'express';
-import { createTxHandler, submitTxHandler } from '../controllers/safe.controller.js';
+import {
+  getSafeInfoHandler,
+  createTxHandler,
+  signTxHandler,
+  executeTxHandler,
+  submitTxHandler
+} from '../controllers/safe-sdk.controller.js';
 
 const router = express.Router();
 
-router.post('/create', createTxHandler);   // builds typed-data & safeTxHash
-router.post('/submit', submitTxHandler);   // validate signatures & return execTxRequest (or execute)
+// GET /safe/info - Get Safe information
+router.get('/info', getSafeInfoHandler);
+
+// POST /safe/create - Create Safe transaction
+router.post('/create', createTxHandler);
+
+// POST /safe/sign - Sign transaction hash with server key
+router.post('/sign', signTxHandler);
+
+// POST /safe/execute - Execute transaction with signatures
+router.post('/execute', executeTxHandler);
+
+// POST /safe/submit - Legacy combined endpoint
+router.post('/submit', submitTxHandler);
 
 export default router;

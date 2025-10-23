@@ -1,0 +1,80 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>MetaMask Execute Helper</title>
+  <style>
+    body {font-family: Inter, system-ui, sans-serif; padding:20px; max-width:900px}
+    pre{background:#0b1220;color:#d1d5db;padding:12px;border-radius:8px;overflow:auto}
+    button{padding:8px 12px;border-radius:8px;background:#0f172a;color:#fff;border:none}
+  </style>
+</head>
+<body>
+  <h2>MetaMask Execute Helper</h2>
+  <p>This page must be opened in a browser with MetaMask. Provide execTxRequest via `tx` URL param (base64 JSON).</p>
+
+  <div>
+    <label><strong>Exec Tx Request (decoded):</strong></label>
+    <pre id="txPre"></pre>
+  </div>
+
+  <div style="margin-top:12px">
+    <button id="connectBtn">Connect MetaMask</button>
+    <button id="execBtn" disabled>Send Transaction via MetaMask</button>
+  </div>
+
+  <div id="txResult" style="margin-top:12px"></div>
+
+  <script>
+    function getParam(name){
+      const u = new URL(window.location.href);
+      return u.searchParams.get(name);
+    }
+    function b64DecodeUnicode(str) {
+      return decodeURIComponent(atob(str).split('').map(function(c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
+    }
+
+    const txParam = getParam('tx');
+    if (!txParam) {
+      document.getElementById('txPre').textContent = 'No execTxRequest provided. Open with ?tx=<base64>';
+    } else {
+      const decoded = b64DecodeUnicode(txParam);
+      try {
+        const obj = JSON.parse(decoded);
+        document.getElementById('txPre').textContent = JSON.stringify(obj, null, 2);
+        window.execTxRequest = obj;
+        document.getElementById('execBtn').disabled = false;
+      } catch(e){
+        document.getElementById('txPre').textContent = 'Invalid execTxRequest';
+      }
+    }
+
+    document.getElementById('connectBtn').onclick = async () => {
+      if (!window.ethereum) return alert('MetaMask not found');
+      try {
+        await window.ethereum.request({ method: 'eth_requestAccounts' });
+        alert('MetaMask connected.');
+      } catch(e) { alert('Connect failed: ' + e.message); }
+    };
+
+    document.getElementById('execBtn').onclick = async () => {
+      if (!window.ethereum) return alert('MetaMask not found');
+      if (!window.execTxRequest) return alert('No execTxRequest loaded');
+      try {
+        // request accounts to ensure signer present
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        // send transaction
+        const txHash = await window.ethereum.request({
+          method: 'eth_sendTransaction',
+          params: [window.execTxRequest]
+        });
+        document.getElementById('txResult').innerText = 'Sent txHash: ' + txHash + ' — check MetaMask or explorer';
+      } catch(err) {
+        document.getElementById('txResult').innerText = 'Send failed: ' + (err.message || err);
+      }
+    };
+  </script>
+</body>
+</html>

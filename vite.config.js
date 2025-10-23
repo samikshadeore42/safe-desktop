@@ -5,5 +5,14 @@ export default defineConfig({
   plugins: [react()],
   build: {
     outDir: 'dist/renderer'
+  },
+  optimizeDeps: { 
+    include: ['@safe-global/protocol-kit', '@safe-global/safe-core-sdk-types'] 
+  },
+  ssr: { 
+    noExternal: ['@safe-global/protocol-kit', '@safe-global/safe-core-sdk-types'] 
+  },
+  define: { 
+    'process.env': {} 
   }
 })
