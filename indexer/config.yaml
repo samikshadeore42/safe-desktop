@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=./node_modules/envio/evm.schema.json
+name: envio-indexer
+networks:
+- id: 11155111
+  start_block: 0
+  contracts:
+  - name: Safe
+    address:
+    - 0x601778F8fa32298E826a8aBEf1E3b31515626845
+    handler: ./src/EventHandlers.js
+    events:
+    - event: AddedOwner(address owner, address prevOwner, uint256 threshold)
+    - event: ApproveHash(bytes32 msgHash, uint256 payment)
+    - event: ChangedThreshold(uint256 threshold)
+    - event: DisabledModule(address module)
+    - event: EnabledModule(address module)
+    - event: ExecutionFailure(bytes32 txHash, uint256 payment)
+    - event: ExecutionSuccess(bytes32 txHash, uint256 payment)
+    - event: FallbackHandlerChanged(address oldFallbackHandler, address newFallbackHandler)
+    - event: RemovedOwner(address owner, address prevOwner, uint256 threshold)
+    - event: SafeMultiSigTransaction(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address refundReceiver, bytes signatures, bytes additionalInfo)
+unordered_multichain_mode: true
+preload_handlers: true

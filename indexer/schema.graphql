@@ -1,0 +1,68 @@
+type Safe_AddedOwner {
+  id: ID!
+  owner: String!
+  prevOwner: String!
+  threshold: BigInt!
+}
+
+type Safe_ApproveHash {
+  id: ID!
+  msgHash: String!
+  payment: BigInt!
+}
+
+type Safe_ChangedThreshold {
+  id: ID!
+  threshold: BigInt!
+}
+
+type Safe_DisabledModule {
+  id: ID!
+  moduleAddress: String!
+}
+
+type Safe_EnabledModule {
+  id: ID!
+  moduleAddress: String!
+}
+
+type Safe_ExecutionFailure {
+  id: ID!
+  txHash: String!
+  payment: BigInt!
+}
+
+type Safe_ExecutionSuccess {
+  id: ID!
+  txHash: String!
+  payment: BigInt!
+}
+
+type Safe_FallbackHandlerChanged {
+  id: ID!
+  oldFallbackHandler: String!
+  newFallbackHandler: String!
+}
+
+type Safe_RemovedOwner {
+  id: ID!
+  owner: String!
+  prevOwner: String!
+  threshold: BigInt!
+}
+
+type Safe_SafeMultiSigTransaction {
+  id: ID!
+  to: String!
+  value: BigInt!
+  data: String!
+  operation: BigInt!
+  safeTxGas: BigInt!
+  baseGas: BigInt!
+  gasPrice: BigInt!
+  gasToken: String!
+  refundReceiver: String!
+  signatures: String!
+  additionalInfo: String!
+}
+
