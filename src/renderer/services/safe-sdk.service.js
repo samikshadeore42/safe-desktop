@@ -220,6 +220,12 @@ export async function exeTxn(safeTransactionData, signatures, safeTxHash) {
   };
 
   console.log("Safe transaction partial:", safeTxPartial);
+  console.log("=== TRANSACTION VALUE DEBUG ===");
+  console.log("Original value:", safeTransactionData.value);
+  console.log("Value type:", typeof safeTransactionData.value);
+  console.log("Target address:", safeTransactionData.to);
+  console.log("Transaction data:", safeTransactionData.data);
+  console.log("Operation:", safeTransactionData.operation);
 
   // Create Safe transaction object
   const safeTransaction = await protocolKit.createTransaction({
@@ -248,21 +254,34 @@ export async function exeTxn(safeTransactionData, signatures, safeTxHash) {
   console.log("Safe owners:", safeOwners);
   console.log("Safe threshold:", safeThreshold);
 
+  // CRITICAL: Use the original SafeTxHash that was used for signing, not the newly generated one
+  const originalSafeTxHash = safeTxHash; // This is the hash from when signatures were created
+  const recreatedSafeTxHash = await protocolKit.getTransactionHash(safeTransaction);
+  
+  console.log("=== HASH COMPARISON ===");
+  console.log("Original SafeTxHash (used for signing):", originalSafeTxHash);
+  console.log("Recreated SafeTxHash (from recreated transaction):", recreatedSafeTxHash);
+  console.log("Hashes match:", originalSafeTxHash === recreatedSafeTxHash);
+  
+  if (originalSafeTxHash !== recreatedSafeTxHash) {
+    console.log("⚠️ SafeTxHash mismatch detected! Using original hash for signature recovery.");
+  }
+
   // Add signatures (all should be 65-byte hex strings)
   for (const sig of signatures) {
     const sigStr = typeof sig === "string" ? sig : sig.signature;
 
     console.log("Processing signature:", sigStr);
     console.log("Signature length:", sigStr.length);
-    console.log("SafeTxHash used for recovery:", safeTxHash);
+    console.log("SafeTxHash used for recovery:", originalSafeTxHash); // Use original hash
 
-    // Recover signer from the signature
+    // Recover signer from the signature using the ORIGINAL hash
     // Try both raw hash and message hash recovery
-    const recoveredAddressRaw = ethers.utils.recoverAddress(safeTxHash, sigStr);
+    const recoveredAddressRaw = ethers.utils.recoverAddress(originalSafeTxHash, sigStr);
     console.log("Recovered signer address (raw hash):", recoveredAddressRaw);
     
     // Try with message hash (for signatures created with signMessage)
-    const messageHash = ethers.utils.hashMessage(ethers.utils.arrayify(safeTxHash));
+    const messageHash = ethers.utils.hashMessage(ethers.utils.arrayify(originalSafeTxHash));
     const recoveredAddressMsg = ethers.utils.recoverAddress(messageHash, sigStr);
     console.log("Recovered signer address (message hash):", recoveredAddressMsg);
     
@@ -310,11 +329,10 @@ export async function exeTxn(safeTransactionData, signatures, safeTxHash) {
   const validSigners = recoveredSigners.filter(signer => safeOwners.includes(signer));
   console.log(`Valid signers: ${validSigners.length}/${safeThreshold} required`);
   
-  // Get the actual transaction hash from the Safe transaction
-  const actualSafeTxHash = await protocolKit.getTransactionHash(safeTransaction);
-  console.log("Expected SafeTxHash:", safeTxHash);
-  console.log("Actual SafeTxHash:", actualSafeTxHash);
-  console.log("SafeTxHash matches:", safeTxHash === actualSafeTxHash);
+  // We already computed the recreated hash above
+  console.log("Expected SafeTxHash (original):", originalSafeTxHash);
+  console.log("Recreated SafeTxHash:", recreatedSafeTxHash);
+  console.log("SafeTxHash matches:", originalSafeTxHash === recreatedSafeTxHash);
   
   // Let's try using different recovery methods
   console.log("=== TESTING SIGNATURE RECOVERY METHODS ===");
@@ -322,26 +340,26 @@ export async function exeTxn(safeTransactionData, signatures, safeTxHash) {
     const sigStr = typeof signatures[i] === "string" ? signatures[i] : signatures[i].signature;
     console.log(`Signature ${i + 1}:`, sigStr);
     
-    // Try recovery with raw SafeTxHash
-    const recoveredRaw = ethers.utils.recoverAddress(safeTxHash, sigStr);
-    console.log(`  With raw SafeTxHash: ${recoveredRaw}`);
+    // Try recovery with original SafeTxHash (used for signing)
+    const recoveredRaw = ethers.utils.recoverAddress(originalSafeTxHash, sigStr);
+    console.log(`  With original SafeTxHash: ${recoveredRaw}`);
     
-    // Try recovery with message hash
-    const messageHash = ethers.utils.hashMessage(ethers.utils.arrayify(safeTxHash));
+    // Try recovery with message hash of original SafeTxHash
+    const messageHash = ethers.utils.hashMessage(ethers.utils.arrayify(originalSafeTxHash));
     const recoveredMsg = ethers.utils.recoverAddress(messageHash, sigStr);
     console.log(`  With message hash: ${recoveredMsg}`);
     
-    // Try recovery with actual transaction hash
-    const recoveredActual = ethers.utils.recoverAddress(actualSafeTxHash, sigStr);
-    console.log(`  With actual SafeTxHash: ${recoveredActual}`);
+    // Try recovery with recreated transaction hash
+    const recoveredRecreated = ethers.utils.recoverAddress(recreatedSafeTxHash, sigStr);
+    console.log(`  With recreated SafeTxHash: ${recoveredRecreated}`);
     
     // Check which methods match Safe owners
     const matchesRaw = safeOwners.includes(recoveredRaw);
     const matchesMsg = safeOwners.includes(recoveredMsg);
-    const matchesActual = safeOwners.includes(recoveredActual);
-    console.log(`  Raw hash matches owner: ${matchesRaw}`);
+    const matchesRecreated = safeOwners.includes(recoveredRecreated);
+    console.log(`  Original hash matches owner: ${matchesRaw}`);
     console.log(`  Message hash matches owner: ${matchesMsg}`);
-    console.log(`  Actual hash matches owner: ${matchesActual}`);
+    console.log(`  Recreated hash matches owner: ${matchesRecreated}`);
   }
   
   // Debug: Check what addresses our configured keys correspond to
