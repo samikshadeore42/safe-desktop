@@ -2,9 +2,8 @@ import express from 'express';
 import {
   getSafeInfoHandler,
   createTxHandler,
-  signTxHandler,
-  executeTxHandler,
-  submitTxHandler
+  signTxHandler
+  
 } from '../controllers/safe-sdk.controller.js';
 
 const router = express.Router();
@@ -22,6 +21,6 @@ router.post('/sign', signTxHandler);
 // router.post('/execute', executeTxHandler);
 
 // POST /safe/submit - Legacy combined endpoint
-router.post('/submit', submitTxHandler);
+// router.post('/submit', submitTxHandler);
 
 export default router;
