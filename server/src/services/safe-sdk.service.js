@@ -71,11 +71,61 @@ export async function signTransactionHash(safeTxHash, signerPk) {
     "signerPk provided:",
     signerPk ? `${signerPk.substring(0, 20)}...` : "NOT PROVIDED"
   );
+  console.log("SafeTxHash to sign:", safeTxHash);
+  
+  // Verify the signer address before signing
+  const signerWallet = new ethers.Wallet(signerPk);
+  console.log("SERVER signer address:", signerWallet.address);
+  
+  // Create raw hash signature for Safe contract compatibility
+  console.log('Creating raw hash signature for Safe contract compatibility...');
+  
+  try {
+    // Sign the raw hash bytes directly (no Ethereum message prefix)
+    const rawHashBytes = ethers.utils.arrayify(safeTxHash);
+    const rawSignature = await signerWallet._signingKey().signDigest(rawHashBytes);
+    const rawSigStr = ethers.utils.joinSignature(rawSignature);
+    
+    console.log('Raw hash signature generated:', rawSigStr);
+    
+    // Verify it recovers correctly with raw hash
+    const rawRecovered = ethers.utils.recoverAddress(safeTxHash, rawSigStr);
+    console.log('Raw signature recovers to:', rawRecovered);
+    console.log('Raw signature recovery matches:', rawRecovered.toLowerCase() === signerWallet.address.toLowerCase());
+    
+    if (rawRecovered.toLowerCase() === signerWallet.address.toLowerCase()) {
+      console.log('✅ Using raw hash signature (Safe contract compatible)');
+      return rawSigStr;
+    }
+  } catch (e) {
+    console.log('Raw hash signing failed:', e.message);
+  }
+  
+  // Fallback to Safe SDK
+  console.log('Trying Safe SDK as fallback...');
   const protocolKit = await initSafeKit(signerPk);
   const signature = await protocolKit.signHash(safeTxHash);
   const sigStr = normalizeSignature(signature);
-
-  return sigStr;
+  
+  // Verify the Safe SDK signature
+  const directRecovered = ethers.utils.recoverAddress(safeTxHash, sigStr);
+  console.log('Safe SDK signature recovers to:', directRecovered);
+  
+  if (directRecovered.toLowerCase() === signerWallet.address.toLowerCase()) {
+    console.log('✅ Using Safe SDK signature');
+    return sigStr;
+  }
+  
+  // Last resort: message signing
+  console.log('Trying message signing as last resort...');
+  const directSignature = await signerWallet.signMessage(ethers.utils.arrayify(safeTxHash));
+  console.log('Message signature:', directSignature);
+  
+  const fallbackRecovered = ethers.utils.recoverAddress(safeTxHash, directSignature);
+  console.log("Message signature recovers to:", fallbackRecovered);
+  
+  console.log('❌ All signing methods failed to create raw hash compatible signatures');
+  return sigStr; // Return Safe SDK signature as best effort
 }
 
 function normalizeSignature(sig) {
