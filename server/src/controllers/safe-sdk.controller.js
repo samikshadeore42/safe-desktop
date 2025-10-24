@@ -3,11 +3,12 @@ import { ethers } from 'ethers';
 import {
   createSafeTransaction,
   signTransactionHash,
-  executeTransaction,
   getSafeInfo
 } from '../services/safe-sdk.service.js';
 
 const SERVER_SIGNER_PK = process.env.OWNER1_PK || process.env.SERVER_SIGNER_PK;
+console.log("Loaded SERVER_SIGNER_PK length:", SERVER_SIGNER_PK?.length);
+
 
 if (!SERVER_SIGNER_PK) {
   console.warn('⚠️  No OWNER1_PK or SERVER_SIGNER_PK found - some endpoints may fail');
@@ -82,93 +83,6 @@ export async function signTxHandler(req, res) {
   } catch (err) {
     return res.status(500).json({
       error: err.message || 'Failed to sign transaction'
-    });
-  }
-}
-
-// export async function executeTxHandler(req, res) {
-//   console.log(req);
-//   console.log('=== EXECUTE TRANSACTION HANDLER ===');
-//   console.log('Request body:', JSON.stringify(req.body, null, 2));
-//   try {
-//     const { safeTransactionData, signatures, executorPk } = req.body;
-
-//     console.log('Safe transaction data:', safeTransactionData);
-//     console.log('Signatures array:', signatures);
-//     console.log('Signatures type:', typeof signatures);
-//     console.log('Signatures length:', signatures?.length);
-//     console.log('Executor PK:', executorPk);
-
-//     if (!safeTransactionData || !Array.isArray(signatures)) {
-//       return res.status(400).json({ error: 'Missing safeTransactionData or signatures[]' });
-//     }
-//     if (signatures.length === 0) {
-//       return res.status(400).json({ error: 'No signatures provided' });
-//     }
-//     const executor = executorPk || process.env.EXECUTOR_PK || SERVER_SIGNER_PK;
-//     if (!executor) {
-//       return res.status(500).json({ error: 'No executor private key available' });
-//     }
-
-//     const sanitizedSignatures = signatures.filter(sig => typeof sig === 'string' && sig.startsWith('0x') && sig.length >= 132);
-    
-//     console.log('Signatures:', signatures);
-//     console.log('Sanitized signatures:', sanitizedSignatures);
-
-//     if (sanitizedSignatures.length < 2) {
-//       throw new Error('Invalid signatures: Each must be a 0x-prefixed ECDSA signature');
-//     }
-
-
-//     const result = await executeTransaction(
-//       safeTransactionData,
-//       sanitizedSignatures,
-//       executor
-//     );
-//     return res.json({
-//       status: 'executed',
-//       txHash: result.txHash,
-//       receipt: result.receipt
-//     });
-//   } catch (err) {
-//     return res.status(500).json({
-//       error: err.message || 'Failed to execute transaction'
-//     });
-//   }
-// }
-
-export async function submitTxHandler(req, res) {
-  try {
-    const { safeTxHash, safeTransactionData, signatures, executeWith } = req.body;
-    if (!safeTxHash || !safeTransactionData || !Array.isArray(signatures)) {
-      return res.status(400).json({
-        error: 'Missing required fields'
-      });
-    }
-    if (executeWith === 'server') {
-      const executorPk = process.env.EXECUTOR_PK || SERVER_SIGNER_PK;
-      if (!executorPk) {
-        return res.status(500).json({ error: 'EXECUTOR_PK not configured' });
-      }
-      const result = await executeTransaction(
-        safeTransactionData,
-        signatures,
-        executorPk
-      );
-      return res.json({
-        status: 'executed',
-        txHash: result.txHash,
-        receipt: result.receipt
-      });
-    }
-    return res.json({
-      status: 'ready',
-      message: 'Signatures validated. Ready for execution via client.',
-      signatureCount: signatures.length
-    });
-  } catch (err) {
-    return res.status(500).json({
-      error: err.message || 'Failed to submit transaction'
     });
   }
 }

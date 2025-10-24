@@ -182,7 +182,6 @@ export async function exeTxn(safeTransactionData, signatures, safeTxHash) {
     ethers.utils.formatEther(safeBalance),
     "ETH"
   );
-  
   const isValid = await protocolKit.isValidTransaction(safeTransaction);
   console.log("Transaction valid:", isValid);
 
