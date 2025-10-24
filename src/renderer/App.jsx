@@ -15,7 +15,14 @@
 // }
 import React from 'react';
 import SafeSetup from './components/SafeSetup.jsx';
+import KeyGenerator from './components/KeyGenerator.jsx';
 
 export default function App() {
-  return <SafeSetup />;
+  return (
+    <div className="app">
+      <div style={{ padding: '20px' }}>
+        <SafeSetup />
+      </div>
+    </div>
+  );
 }
