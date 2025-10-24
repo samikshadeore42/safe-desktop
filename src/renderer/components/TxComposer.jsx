@@ -13,7 +13,7 @@ export default function TxComposerSDK() {
   const [safeInfo, setSafeInfo] = useState(null);
   const [formData, setFormData] = useState({
     to: '',
-    value: '0',
+    value: '0.01', // Default to 0.01 ETH for testing
     data: '0x'
   });
   const [txData, setTxData] = useState(null);
@@ -40,7 +40,41 @@ export default function TxComposerSDK() {
       setStatus('Creating transaction...');
       setSignatures([]);
 
-      let valueInWei = ethers.utils.parseEther(formData.value).toString();
+      console.log("=== TRANSACTION CREATION DEBUG ===");
+      console.log("Form value entered:", formData.value);
+      console.log("Form value type:", typeof formData.value);
+      
+      // Validate that we're not sending 0 ETH
+      if (!formData.value || formData.value === "0" || parseFloat(formData.value) === 0) {
+        throw new Error("Cannot send 0 ETH. Please enter a value greater than 0.");
+      }
+      
+      let valueInWei;
+      try {
+        // If the value looks like it's already in wei (very large number), use it directly
+        if (formData.value.length > 15) {
+          valueInWei = formData.value;
+          console.log("Using value as wei directly:", valueInWei);
+        } else {
+          // Otherwise, treat it as ETH and convert to wei
+          valueInWei = ethers.utils.parseEther(formData.value).toString();
+          console.log("Converted ETH to wei:", valueInWei);
+        }
+        
+        // Double-check that the final value is not zero
+        if (valueInWei === "0") {
+          throw new Error("Calculated value is 0 wei. Please enter a larger amount.");
+        }
+        
+      } catch (e) {
+        console.error("Value conversion error:", e.message);
+        throw new Error(`Invalid value format: ${formData.value}. ${e.message}`);
+      }
+      
+      console.log("Target address:", formData.to);
+      console.log("Final value in wei:", valueInWei);
+      console.log("Value in ETH:", ethers.utils.formatEther(valueInWei));
+      
       const result = await createSafeTx({
         to: formData.to,
         value: valueInWei,
@@ -140,7 +174,7 @@ export default function TxComposerSDK() {
         />
         <input
           style={styles.input}
-          placeholder="Value (in wei, e.g., 10000000000000000 for 0.01 ETH)"
+          placeholder="Value in ETH (e.g., 0.01 for 0.01 ETH)"
           value={formData.value}
           onChange={(e) => setFormData({ ...formData, value: e.target.value })}
         />
