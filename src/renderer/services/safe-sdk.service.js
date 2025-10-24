@@ -1,53 +1,110 @@
 import { ethers } from "ethers";
 import Safe from "@safe-global/protocol-kit";
 
-const SERVER_URL = "http://localhost:3000";
-
-// This is for the second owner who signs locally
-const LOCAL_SIGNER_PK = import.meta.env.VITE_OWNER2_PK;
-
+// Environment variables
 const RPC_URL = import.meta.env.VITE_RPC_URL;
 const SAFE_ADDRESS = import.meta.env.VITE_SAFE_ADDRESS;
 const CHAIN_ID = BigInt(import.meta.env.VITE_CHAIN_ID || 11155111);
-const EXECUTOR_PK = import.meta.env.VITE_WALLET_A_PK;
 
-export async function getSafeInfo() {
-  const response = await fetch(`${SERVER_URL}/safe/info`);
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || "Failed to get Safe info");
-  }
-  return await response.json();
+// Private keys for signing
+const OWNER1_PK = import.meta.env.VITE_OWNER1_PK;  // First owner key
+const OWNER2_PK = import.meta.env.VITE_OWNER2_PK;  // Second owner key
+const EXECUTOR_PK = import.meta.env.VITE_WALLET_A_PK;  // Executor key
+
+// Validation
+if (!RPC_URL || !SAFE_ADDRESS) {
+  throw new Error("RPC_URL and SAFE_ADDRESS must be set in .env");
 }
 
-export async function createSafeTx({ to, value = "0", data = "0x" }) {
-  const response = await fetch(`${SERVER_URL}/safe/create`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ to, value, data }),
+/**
+ * Initialize Safe Protocol Kit with a signer
+ */
+async function initSafeKit(signerPk) {
+  const protocolKit = await Safe.init({
+    provider: RPC_URL,
+    signer: signerPk,
+    safeAddress: SAFE_ADDRESS,
+    chainId: CHAIN_ID,
   });
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || "Failed to create transaction");
-  }
-  return await response.json();
+  return protocolKit;
 }
 
-export async function signLocallyWithSDK(safeTxHash) {
-  const localSignerPk = import.meta.env.VITE_OWNER2_PK;
-  console.log('=== LOCAL SIGNING DEBUG ===');
-  console.log('VITE_OWNER2_PK from env:', localSignerPk ? `${localSignerPk.substring(0, 20)}...` : 'NOT SET');
+/**
+ * Get Safe information directly from the blockchain
+ */
+export async function getSafeInfo() {
+  const protocolKit = await initSafeKit(OWNER1_PK);
+
+  const [address, nonce, threshold, owners, isDeployed] = await Promise.all([
+    protocolKit.getAddress(),
+    protocolKit.getNonce(),
+    protocolKit.getThreshold(),
+    protocolKit.getOwners(),
+    protocolKit.isSafeDeployed(),
+  ]);
+
+  return {
+    address,
+    nonce,
+    threshold,
+    owners,
+    isDeployed,
+  };
+}
+
+/**
+ * Create a new Safe transaction
+ */
+export async function createSafeTx({ to, value = "0", data = "0x" }) {
+  const protocolKit = await initSafeKit(OWNER1_PK);
+
+  const safeTransaction = await protocolKit.createTransaction({
+    transactions: [
+      {
+        to,
+        value: value.toString(),
+        data,
+      },
+    ],
+  });
+
+  const safeTxHash = await protocolKit.getTransactionHash(safeTransaction);
+  const stxData = safeTransaction.data || {};
+  const innerTx = (stxData.transactions && stxData.transactions[0]) || stxData;
+
+  const safeTransactionData = {
+    to: innerTx.to,
+    value: innerTx.value ?? "0",
+    data: innerTx.data ?? "0x",
+    operation: innerTx.operation ?? 0,
+    safeTxGas: stxData.safeTxGas ?? "0",
+    baseGas: stxData.baseGas ?? "0",
+    gasPrice: stxData.gasPrice ?? "0",
+    gasToken: stxData.gasToken ?? ethers.constants.AddressZero,
+    refundReceiver: stxData.refundReceiver ?? ethers.constants.AddressZero,
+    nonce: stxData.nonce ?? (await protocolKit.getNonce()),
+  };
+
+  return {
+    safeTransaction,
+    safeTxHash,
+    safeTransactionData,
+  };
+}
+
+export async function getOwner2Signature(safeTxHash) {
+  console.log('=== OWNER2 SIGNING DEBUG ===');
   console.log('SafeTxHash to sign:', safeTxHash);
   
-  if (!LOCAL_SIGNER_PK || LOCAL_SIGNER_PK.includes("YOUR_")) {
+  if (!OWNER2_PK) {
     throw new Error(
-      "LOCAL_SIGNER_PK not configured. Set VITE_OWNER2_PK in .env"
+      "OWNER2_PK not configured. Set VITE_OWNER2_PK in .env"
     );
   }
   
   // Verify the signer address before signing
-  const signerWallet = new ethers.Wallet(LOCAL_SIGNER_PK);
-  console.log('LOCAL_SIGNER address:', signerWallet.address);
+  const signerWallet = new ethers.Wallet(OWNER2_PK);
+  console.log('OWNER2 address:', signerWallet.address);
   
   // Debug: Let's verify the private key directly
   console.log('=== PRIVATE KEY VERIFICATION ===');
@@ -121,7 +178,7 @@ export async function signLocallyWithSDK(safeTxHash) {
   console.log('Trying Safe SDK as fallback...');
   const protocolKit = await Safe.init({
     provider: RPC_URL,
-    signer: LOCAL_SIGNER_PK,
+    signer: OWNER1_PK,
     safeAddress: SAFE_ADDRESS,
     chainId: CHAIN_ID,
   });
@@ -142,18 +199,36 @@ export async function signLocallyWithSDK(safeTxHash) {
   }
 }
 
-export async function getServerSignature(safeTxHash) {
-  const response = await fetch(`${SERVER_URL}/safe/sign`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ safeTxHash }),
-  });
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || "Failed to get server signature");
+/**
+ * Get signature from first owner (previously server signature)
+ */
+export async function getOwner1Signature(safeTxHash) {
+  if (!OWNER1_PK) {
+    throw new Error("OWNER1_PK not configured. Set VITE_OWNER1_PK in .env");
   }
-  const result = await response.json();
-  return result.signature;
+
+  const signerWallet = new ethers.Wallet(OWNER1_PK);
+  console.log("OWNER1 signer address:", signerWallet.address);
+  
+  try {
+    // Sign the raw hash bytes directly (no Ethereum message prefix)
+    const rawHashBytes = ethers.utils.arrayify(safeTxHash);
+    const rawSignature = await signerWallet._signingKey().signDigest(rawHashBytes);
+    const rawSigStr = ethers.utils.joinSignature(rawSignature);
+    
+    // Verify it recovers correctly with raw hash
+    const rawRecovered = ethers.utils.recoverAddress(safeTxHash, rawSigStr);
+    if (rawRecovered.toLowerCase() === signerWallet.address.toLowerCase()) {
+      return rawSigStr;
+    }
+  } catch (e) {
+    console.log('Raw hash signing failed:', e.message);
+  }
+  
+  // Fallback to Safe SDK
+  const protocolKit = await initSafeKit(OWNER1_PK);
+  const signature = await protocolKit.signHash(safeTxHash);
+  return normalizeSignature(signature);
 }
 
 // export async function executeTransaction(safeTransactionData, signatures) {
@@ -346,10 +421,10 @@ export async function exeTxn(safeTransactionData, signatures, safeTxHash) {
   
   // Debug: Check what addresses our configured keys correspond to
   console.log("=== CONFIGURED SIGNER ADDRESSES ===");
-  if (LOCAL_SIGNER_PK && !LOCAL_SIGNER_PK.includes("YOUR_")) {
-    const localWallet = new ethers.Wallet(LOCAL_SIGNER_PK);
-    console.log("LOCAL_SIGNER_PK corresponds to address:", localWallet.address);
-    console.log("Is LOCAL_SIGNER a Safe owner?", safeOwners.includes(localWallet.address));
+  if (OWNER2_PK) {
+    const owner2Wallet = new ethers.Wallet(OWNER2_PK);
+    console.log("OWNER2_PK corresponds to address:", owner2Wallet.address);
+    console.log("Is OWNER2 a Safe owner?", safeOwners.includes(owner2Wallet.address));
   }
   
   if (EXECUTOR_PK) {
@@ -432,10 +507,10 @@ function normalizeSignature(sig) {
   return JSON.stringify(sig);
 }
 
-export function getLocalSignerAddress() {
-  if (!LOCAL_SIGNER_PK || LOCAL_SIGNER_PK.includes("YOUR_")) {
+export function getOwner2Address() {
+  if (!OWNER2_PK) {
     return "Not configured";
   }
-  const wallet = new ethers.Wallet(LOCAL_SIGNER_PK);
+  const wallet = new ethers.Wallet(OWNER2_PK);
   return wallet.address;
 }

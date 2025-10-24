@@ -3,11 +3,10 @@ import { ethers } from 'ethers';
 import {
   getSafeInfo,
   createSafeTx,
-  signLocallyWithSDK,
-  getServerSignature,
-  // executeTransaction,
+  getOwner1Signature,
+  getOwner2Signature,
   exeTxn,
-  getLocalSignerAddress,
+  getOwner2Address,
 } from '../services/safe-sdk.service';
 
 export default function TxComposerSDK() {
@@ -62,13 +61,13 @@ export default function TxComposerSDK() {
       setStatus('Getting signatures...');
       if (!txData) throw new Error('No transaction data');
       const sigs = [];
-      setStatus('Getting signature from server (owner1)...');
-      const serverSig = await getServerSignature(txData.safeTxHash);
-      sigs.push(serverSig);
-      setStatus('Signing locally (owner2)...');
+      setStatus('Getting signature from Owner 1...');
+      const owner1Sig = await getOwner1Signature(txData.safeTxHash);
+      sigs.push(owner1Sig);
+      setStatus('Getting signature from Owner 2...');
       console.log(txData.safeTxHash);
-      const localSig = await signLocallyWithSDK(txData.safeTxHash);
-      sigs.push(localSig);
+      const owner2Sig = await getOwner2Signature(txData.safeTxHash);
+      sigs.push(owner2Sig);
       setSignatures(sigs);
       setStatus(`✅ Got ${sigs.length} signatures! Ready to execute.`);
     } catch (err) {
@@ -128,7 +127,7 @@ export default function TxComposerSDK() {
               ))}
             </ul>
           </details>
-          <p><strong>Local Signer:</strong> {getLocalSignerAddress()}</p>
+          <p><strong>Owner 2 Address:</strong> {getOwner2Address()}</p>
         </div>
       )}
       <div style={styles.section}>
