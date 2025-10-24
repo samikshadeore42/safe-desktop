@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
+
 import {
   getSafeInfo,
   createSafeTx,
@@ -9,7 +10,7 @@ import {
   getLocalSignerAddress
 } from '../services/safe-sdk.service';
 
-export default function TxComposerSDK() {
+export default function TxComposerSDK({ onNavigate }) {
   const [safeInfo, setSafeInfo] = useState(null);
   const [formData, setFormData] = useState({
     to: '',
@@ -123,6 +124,8 @@ export default function TxComposerSDK() {
           <p><strong>Local Signer:</strong> {getLocalSignerAddress()}</p>
         </div>
       )}
+
+      {/* Step 1: Create */}
       <div style={styles.section}>
         <h2>Step 1: Compose Transaction</h2>
         <input
@@ -133,7 +136,7 @@ export default function TxComposerSDK() {
         />
         <input
           style={styles.input}
-          placeholder="Value (in wei, e.g., 10000000000000000 for 0.01 ETH)"
+          placeholder="Value (in ETH, e.g., 0.01)"
           value={formData.value}
           onChange={(e) => setFormData({ ...formData, value: e.target.value })}
         />
@@ -147,6 +150,8 @@ export default function TxComposerSDK() {
           Create Transaction
         </button>
       </div>
+
+      {/* Step 2: Sign */}
       {txData && (
         <div style={styles.section}>
           <h2>Step 2: Collect Signatures</h2>
@@ -171,6 +176,8 @@ export default function TxComposerSDK() {
           )}
         </div>
       )}
+
+      {/* Step 3: Execute */}
       {txData && signatures.length >= 2 && (
         <div style={styles.section}>
           <h2>Step 3: Execute Transaction</h2>
@@ -180,12 +187,33 @@ export default function TxComposerSDK() {
           </button>
         </div>
       )}
+
+      {/* Status + Reset */}
       {status && <p style={styles.status}>{status}</p>}
       {error && <p style={styles.error}>{error}</p>}
       {(txData || status || error) && (
         <button style={styles.resetButton} onClick={handleReset}>
           Reset / Start New Transaction
         </button>
+      )}
+
+      {/* ✅ New HyperIndex Button */}
+      {onNavigate && (
+        <div style={{ marginTop: 20 }}>
+          <button
+            style={{
+              padding: "10px 16px",
+              background: "#2D6CDF",
+              color: "white",
+              border: 0,
+              borderRadius: 6,
+              cursor: "pointer",
+            }}
+            onClick={() => onNavigate('hyperindex')}
+          >
+            Open HyperIndex Activity
+          </button>
+        </div>
       )}
     </div>
   );
