@@ -1,156 +1,294 @@
-# TPM Signing Server
+# TPM Signing Agent - Deployment Guide
 
-A Go HTTP server that provides TPM-based Ethereum transaction signing capabilities.
+This directory contains a complete TPM-based signing solution that can be packaged with Electron apps for secure key management.
 
-## Features
+## 📁 Files Overview
 
-- **GET /address**: Returns the Ethereum address derived from the TPM key
-- **POST /sign**: Signs a transaction hash using the TPM and returns a normalized signature with v value
-- **POST /verify**: Verifies signatures and recovers addresses for validation
+### Core Scripts
+- **`start-tpm-server.sh`** - Simple one-click deployment script (🎯 **USE THIS**)
+- **`setup-and-run.sh`** - Advanced setup script with full control
+- **`process.md`** - Original manual setup instructions
 
-## Prerequisites
+### Binaries (Auto-generated)
+- **`tpm-signing-server`** - Main signing server binary
+- **`key-generator`** - Key generation utility binary
 
-- TPM 2.0 hardware or simulator
-- Go 1.19 or later
-- Required Go modules (see go.mod)
+### Source Directories
+- **`create_key/`** - Key generation source code
+- **`unseal_server/`** - Preferred server implementation (unseals from TPM)
+- **`signer/`** - Alternative server (direct TPM signing)
 
-## Installation
+## 🚀 Quick Start (For End Users)
 
-1. Clone the repository
-2. Install dependencies:
-   ```bash
-   go mod tidy
+### Option 1: Simple Deployment (Recommended)
+```bash
+# One command setup and run
+./start-tmp-server.sh
+```
+
+This will:
+1. Check for existing TPM setup
+2. Install dependencies if needed (asks for password)
+3. Build binaries if needed
+4. Generate keys and seal to TPM (first time only)
+5. Start the server on port 8081
+
+### Option 2: Manual Control
+```bash
+# Install TPM tools
+./setup-and-run.sh --install-deps
+
+# Build binaries
+./setup-and-run.sh --build
+
+# Setup TPM keys (one time)
+./setup-and-run.sh --setup
+
+# Start server
+./setup-and-run.sh --start --port 8081
+
+# Check status
+./setup-and-run.sh --status
+
+# Stop server
+./setup-and-run.sh --stop
+```
+
+## 🔧 For Electron App Developers
+
+### Packaging with Electron
+
+1. **Copy this entire directory** into your Electron app's resources:
+   ```
+   your-electron-app/
+   ├── resources/
+   │   └── tpm-signing-agent/
+   │       ├── start-tpm-server.sh      ← Main script
+   │       ├── setup-and-run.sh         ← Advanced script
+   │       ├── create_key/              ← Source code
+   │       ├── unseal_server/           ← Source code
+   │       └── ...
    ```
 
-## Usage
+2. **Start the TPM server** from your Electron main process:
+   ```javascript
+   const { spawn } = require('child_process');
+   const path = require('path');
+   
+   // Start TPM server
+   const tpmServerPath = path.join(__dirname, 'resources', 'tpm-signing-agent');
+   const tpmProcess = spawn('./start-tpm-server.sh', [], {
+     cwd: tpmServerPath,
+     stdio: 'pipe'
+   });
+   
+   tpmProcess.stdout.on('data', (data) => {
+     console.log('TPM Server:', data.toString());
+   });
+   ```
 
-### Starting the Server
+3. **Use the API** from your renderer process:
+   ```javascript
+   // Get Ethereum address
+   const addressResponse = await fetch('http://localhost:8081/address');
+   const { address } = await addressResponse.json();
+   
+   // Sign transaction
+   const signResponse = await fetch('http://localhost:8081/sign', {
+     method: 'POST',
+     headers: { 'Content-Type': 'application/json' },
+     body: JSON.stringify({ 
+       txHashHex: '0xce092d40e81b6994594db49f209ac5b980049c24a4bef5f775318d4e12497164' 
+     })
+   });
+   const signature = await signResponse.json();
+   ```
+
+### Pre-built Distribution
+
+For faster deployment, you can pre-build the binaries:
 
 ```bash
-go run main.go [flags]
+# Build for current platform
+./setup-and-run.sh --build
+
+# The binaries are now ready:
+# - tpm-signing-server
+# - key-generator
+
+# Package these with your Electron app
 ```
 
-### Command Line Flags
+## 🔒 Security Architecture
 
-- `-tpm-path`: Path to TPM device (default: "/dev/tpmrm0")
-- `-handle`: TPM key handle in hex (default: 0x81000000)
-- `-port`: HTTP server port (default: "8080")
+### Key Storage
+- **Private key generated** using secp256k1 curve
+- **Sealed into TPM** with `fixedtpm|fixedparent|userwithauth` attributes
+- **Hardware-protected** - can only be unsealed by the same TPM
+- **Never stored in plaintext** on disk
 
-### Example
+### Signing Process
+1. Client sends transaction hash to `/sign` endpoint
+2. Server unseals private key from TPM into memory
+3. Server signs using standard Ethereum ECDSA
+4. Private key immediately zeroed from memory
+5. Returns signature with proper v/r/s values
 
-```bash
-# Start server with default settings
-go run main.go
+### Handle Management
+- Script automatically finds next available TPM persistent handle
+- Handles stored in `.tpm-config` file
+- Multiple apps can coexist with different handles
 
-# Start server with custom TPM handle and port
-go run main.go -handle 0x81000001 -port 9090
-```
+## 📡 API Endpoints
 
-## API Endpoints
+### GET /address
+Returns the Ethereum address derived from the TPM-sealed key.
 
-### 1. Get Ethereum Address
-
-**Endpoint**: `GET /address`
-
-**Response**:
+**Response:**
 ```json
 {
-  "address": "0x1234567890abcdef1234567890abcdef12345678"
+  "address": "0x742d35Cc6634C0532925a3b8C17C2b9e39dC18f4"
 }
 ```
 
-### 2. Sign Transaction Hash
+### POST /sign
+Signs a transaction hash using the TPM-sealed private key.
 
-**Endpoint**: `POST /sign`
-
-**Request Body**:
+**Request:**
 ```json
 {
   "txHashHex": "0xce092d40e81b6994594db49f209ac5b980049c24a4bef5f775318d4e12497164"
 }
 ```
 
-**Response**:
+**Response:**
 ```json
 {
-  "signature": "abcdef12...",      // 64-byte hex signature (r+s)
-  "signatureWithV": "abcdef12...", // 65-byte hex signature (r+s+v)
-  "v": 0,                         // Recovery ID (0 or 1)
-  "r": "abcdef12...",             // 32-byte r component
-  "s": "123456..."                // 32-byte s component
+  "signature": "304402207...",      // 64-byte r+s
+  "signatureWithV": "304402207...", // 65-byte r+s+v  
+  "v": 0,                          // Recovery ID (0 or 1)
+  "legacyV": 27,                   // Legacy format (27 or 28)
+  "r": "7a8b9c...",               // R component
+  "s": "1d2e3f...",               // S component
+  "address": "0x742d35..."        // Signing address
 }
 ```
 
-### 3. Verify Signature
+## 🐛 Troubleshooting
 
-**Endpoint**: `POST /verify`
-
-**Request Body**:
-```json
-{
-  "txHashHex": "0xce092d40e81b6994594db49f209ac5b980049c24a4bef5f775318d4e12497164",
-  "signature": "abcdef1234567890...",  // 64 or 65-byte hex signature
-  "v": 0                             // Optional: explicit v value for 64-byte signatures
-}
-```
-
-**Response**:
-```json
-{
-  "valid": true,
-  "recoveredAddress": "0x1234567890abcdef1234567890abcdef12345678",
-  "expectedAddress": "0x1234567890abcdef1234567890abcdef12345678",
-  "message": "Signature is valid!"
-}
-```
-
-## Testing
-
-Use the provided test script:
-
+### TPM Not Found
 ```bash
-./test_server.sh
+# Check TPM availability
+ls -la /dev/tpm*
+
+# Enable TPM in BIOS/UEFI
+# Or install TPM simulator:
+sudo apt-get install swtpm swtpm-tools
 ```
 
-Or test manually with curl:
-
+### Permission Denied
 ```bash
-# Get address
-curl -X GET http://localhost:8080/address
-
-# Sign transaction
-curl -X POST http://localhost:8080/sign \
-  -H "Content-Type: application/json" \
-  -d '{"txHashHex": "0xce092d40e81b6994594db49f209ac5b980049c24a4bef5f775318d4e12497164"}'
-
-# Verify signature
-curl -X POST http://localhost:8080/verify \
-  -H "Content-Type: application/json" \
-  -d '{"txHashHex": "0xce092d40e81b6994594db49f209ac5b980049c24a4bef5f775318d4e12497164", "signature": "YOUR_SIGNATURE_HERE"}'
+# Add user to tss group
+sudo usermod -a -G tss $USER
+# Logout and login again
 ```
 
-## Integration with Safe SDK
+### Server Won't Start
+```bash
+# Check status and logs
+./setup-and-run.sh --status
 
-The signature returned by the `/sign` endpoint is a 64-byte hex string that is compatible with Safe SDK. The signature is already normalized for Ethereum (s <= N/2) to prevent malleability attacks.
+# View server logs
+tail -f tpm-server.log
+```
 
-## Security Notes
+### Clean Start
+```bash
+# Remove all data and start fresh
+./setup-and-run.sh --clean
+./start-tpm-server.sh
+```
 
-- The server runs on localhost by default for security
-- The TPM key handle must be pre-configured on your system
-- Transaction hashes must be exactly 32 bytes (64 hex characters)
-- The server validates all input parameters before processing
+## 🏗️ Build Requirements
 
-## Error Handling
+- **Go 1.19+** for building binaries
+- **TPM 2.0** hardware or simulator
+- **tpm2-tools** package for TPM operations
+- **Linux/Unix** environment (Windows WSL supported)
 
-The server returns appropriate HTTP status codes:
-- `200 OK`: Successful operation
-- `400 Bad Request`: Invalid input (malformed JSON, invalid hex, wrong hash length)
-- `405 Method Not Allowed`: Wrong HTTP method
-- `500 Internal Server Error`: TPM or signing errors
+## 📝 Files Generated
 
-## Dependencies
+After setup, these files are created:
+- `.tpm-config` - TPM handle configuration
+- `.server-pid` - Running server process ID
+- `tpm-server.log` - Server runtime logs
+- `keys/` - Directory with TPM context files
+- `tpm-signing-server` - Server binary
+- `key-generator` - Key generation binary
 
-- `github.com/ethereum/go-ethereum/crypto`: Ethereum cryptographic functions
-- `github.com/google/go-tpm/tpm2`: TPM 2.0 library
-- `github.com/google/go-tpm/tpmutil`: TPM utilities
-- `github.com/salrashid123/tpmsigner`: TPM signing implementation
+## 🔄 Integration Example
+
+Complete Electron integration example:
+
+```javascript
+// main.js
+const { app, BrowserWindow } = require('electron');
+const { spawn } = require('child_process');
+const path = require('path');
+
+let tpmProcess = null;
+
+app.whenReady().then(() => {
+  // Start TPM server
+  const tpmDir = path.join(__dirname, 'resources', 'tpm-signing-agent');
+  tpmProcess = spawn('./start-tpm-server.sh', [], { 
+    cwd: tmpDir,
+    detached: true
+  });
+  
+  // Create window after TPM is ready
+  setTimeout(createWindow, 5000);
+});
+
+app.on('before-quit', () => {
+  // Clean shutdown
+  if (tmpProcess) {
+    spawn('./setup-and-run.sh', ['--stop'], { 
+      cwd: path.join(__dirname, 'resources', 'tpm-signing-agent')
+    });
+  }
+});
+
+// renderer.js
+async function signTransaction(txHash) {
+  try {
+    const response = await fetch('http://localhost:8081/sign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ txHashHex: txHash })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Signing failed:', error);
+    throw error;
+  }
+}
+```
+
+## 🎯 Summary
+
+This TPM signing agent provides:
+
+✅ **Hardware Security** - Keys sealed in TPM chip  
+✅ **Ethereum Compatible** - Standard ECDSA signatures  
+✅ **Easy Deployment** - One-script setup  
+✅ **Electron Ready** - Designed for app packaging  
+✅ **Multi-Platform** - Linux, macOS, Windows (WSL)  
+✅ **Production Ready** - Error handling, logging, cleanup  
+
+Perfect for Electron apps requiring secure key management! 🔐✨
