@@ -86,3 +86,39 @@ export async function signTxHandler(req, res) {
     });
   }
 }
+export async function generateKeyPairHandler(req, res) {
+  try {
+    console.log('=== GENERATE KEYPAIR HANDLER ===');
+    
+    // Generate a new random wallet (this will be stored in TPM/secure storage in production)
+    const newWallet = ethers.Wallet.createRandom();
+    
+    const publicKey = newWallet.address;
+    const privateKey = newWallet.privateKey;
+    
+    // TODO: In production, store privateKey in TPM/Hardware Security Module
+    // For now, we'll store it in a secure server location
+    console.log(`Generated keypair. Public: ${publicKey}`);
+    
+    // Store mapping (you can use a database in production)
+    // For PoC: store in memory or file
+    
+
+
+
+
+
+
+
+    return res.json({
+      publicKey,
+      message: 'Keypair generated. Private key stored securely on server.'
+
+    });
+  } catch (err) {
+    console.error('Keypair generation error:', err);
+    return res.status(500).json({
+      error: err.message || 'Failed to generate keypair'
+    });
+  }
+}

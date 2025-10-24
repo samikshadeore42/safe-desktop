@@ -2,8 +2,8 @@ import express from 'express';
 import {
   getSafeInfoHandler,
   createTxHandler,
-  signTxHandler
-  
+  signTxHandler,
+  generateKeyPairHandler,
 } from '../controllers/safe-sdk.controller.js';
 
 const router = express.Router();
@@ -22,5 +22,9 @@ router.post('/sign', signTxHandler);
 
 // POST /safe/submit - Legacy combined endpoint
 // router.post('/submit', submitTxHandler);
+
+router.post('/generate-keypair', generateKeyPairHandler);
+
+
 
 export default router;
