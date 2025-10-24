@@ -56,3 +56,126 @@ export async function fetchLatestMultiSigTx(limit) {
   const data = await gql(q, { limit });
   return data.Safe_SafeMultiSigTransaction ?? [];
 }
+
+export async function fetchSafeOverviewData(safeAddress) {
+  const q = `
+    query SafeDashboard($safeAddress: String!, $limit: Int!) {
+  txs: Safe_SafeMultiSigTransaction(where: {safeAddress: {_eq: $safeAddress}}, limit: $limit) {
+    id
+  }
+  executed: Safe_ExecutionSuccess(where: {safeAddress: {_eq: $safeAddress}}, order_by: {timestamp: desc}, limit: $limit) {
+    id
+    timestamp
+  }
+  failed: Safe_ExecutionFailure(where: {safeAddress: {_eq: $safeAddress}}, limit: $limit) {
+    id
+  }
+  owners: Safe_AddedOwner(where: {safeAddress: {_eq: $safeAddress}}, order_by: {timestamp: desc}, limit: 5) {
+    owner
+  }
+  lastOwnerChange: Safe_ChangedThreshold(where: {safeAddress: {_eq: $safeAddress}}, order_by: {timestamp: desc}, limit: 1) {
+    timestamp
+  }
+}
+
+  `;
+
+  const variables = { safeAddress: safeAddress.toLowerCase(), limit: 50 };
+  const res = await gql(q, variables);
+
+  return {
+    totalTxs: res.txs.length,
+    executedTxs: res.executed.length,
+    pendingTxs: res.txs.length - res.executed.length - res.failed.length,
+    failedTxs: res.failed.length,
+    owners: res.owners.map(o => o.owner),
+    threshold: res.lastOwnerChange.length > 0 ? "Changed" : "Unknown",
+    lastTxTime: res.executed.length > 0 ? res.executed[0].timestamp : null,
+  };
+}
+
+
+export async function fetchTxLifecycleData(safeAddress) {
+  const q = `
+    query TxLifecycle($safeAddress: String!) {
+      txs: Safe_SafeMultiSigTransaction(
+        where: {safeAddress: {_eq: $safeAddress}}, 
+        order_by: {timestamp: desc}
+      ) {
+        id
+        txHash
+        to
+        value
+        timestamp
+      }
+      executedIds: Safe_ExecutionSuccess(
+        where: {safeAddress: {_eq: $safeAddress}}
+      ) {
+        id
+      }
+      failedIds: Safe_ExecutionFailure(
+        where: {safeAddress: {_eq: $safeAddress}}
+      ) {
+        id
+      }
+    }
+  `;
+  const variables = { safeAddress: safeAddress.toLowerCase() };
+  const res = await gql(q, variables);
+
+  const executedSet = new Set(res.executedIds.map(e => e.id));
+  const failedSet = new Set(res.failedIds.map(f => f.id));
+
+  return res.txs.map(tx => ({
+    ...tx,
+    status: executedSet.has(tx.id) ? "Executed" : failedSet.has(tx.id) ? "Failed" : "Pending"
+  }));
+}
+
+export async function fetchRecentActivity(safeAddress, limit = 10) {
+  const q = `
+    query RecentActivity($safeAddress: String!, $limit: Int!) {
+      execSuccess: Safe_ExecutionSuccess(
+        where: {safeAddress: {_eq: $safeAddress}}, 
+        order_by: {timestamp: desc}, 
+        limit: $limit
+      ) {
+        id
+        txHash
+        timestamp
+      }
+      execFailure: Safe_ExecutionFailure(
+        where: {safeAddress: {_eq: $safeAddress}}, 
+        order_by: {timestamp: desc}, 
+        limit: $limit
+      ) {
+        id
+        txHash
+        timestamp
+      }
+      addedOwner: Safe_AddedOwner(
+        where: {safeAddress: {_eq: $safeAddress}}, 
+        order_by: {timestamp: desc}, 
+        limit: $limit
+      ) {
+        id
+        owner
+        timestamp
+      }
+    }
+  `;
+  
+  const variables = { safeAddress: safeAddress.toLowerCase(), limit };
+  const res = await gql(q, variables);
+  
+  // Combine and sort all activities
+  const activities = [
+    ...res.execSuccess.map(e => ({ ...e, type: "ExecutionSuccess" })),
+    ...res.execFailure.map(e => ({ ...e, type: "ExecutionFailure" })),
+    ...res.addedOwner.map(e => ({ ...e, type: "AddedOwner" }))
+  ];
+  
+  activities.sort((a, b) => b.timestamp - a.timestamp);
+  
+  return activities.slice(0, limit);
+}
