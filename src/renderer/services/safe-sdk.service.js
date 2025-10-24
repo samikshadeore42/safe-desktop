@@ -532,3 +532,28 @@ export function getOwner2Address() {
   const wallet = new ethers.Wallet(OWNER2_PK);
   return wallet.address;
 }
+
+/**
+ * Generate a new Ethereum key pair
+ * @returns {Promise<{publicKey: string, privateKey: string}>} The generated key pair
+ */
+export function generateKeyPair() {
+  try {
+    console.log('=== GENERATE KEYPAIR ===');
+    
+    // Generate a new random wallet
+    const newWallet = ethers.Wallet.createRandom();
+    
+    const keyPair = {
+      publicKey: newWallet.address,
+      privateKey: newWallet.privateKey,
+      mnemonic: newWallet.mnemonic.phrase // Include mnemonic for backup
+    };
+    
+    console.log(`Generated keypair. Public: ${keyPair.publicKey}`);
+    return keyPair;
+  } catch (err) {
+    console.error('Keypair generation error:', err);
+    throw new Error(err.message || 'Failed to generate keypair');
+  }
+}
