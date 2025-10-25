@@ -110,24 +110,24 @@ export async function fetchTxLifecycleData(safeAddress) {
       executedIds: Safe_ExecutionSuccess(
         where: {safeAddress: {_eq: $safeAddress}}
       ) {
-        id
+        timestamp
       }
       failedIds: Safe_ExecutionFailure(
         where: {safeAddress: {_eq: $safeAddress}}
       ) {
-        id
+        timestamp
       }
     }
   `;
   const variables = { safeAddress: safeAddress.toLowerCase() };
   const res = await gql(q, variables);
 
-  const executedSet = new Set(res.executedIds.map(e => e.id));
-  const failedSet = new Set(res.failedIds.map(f => f.id));
+  const executedSet = new Set(res.executedIds.map(e => e.timestamp));
+  const failedSet = new Set(res.failedIds.map(f => f.timestamp));
 
   return res.txs.map(tx => ({
     ...tx,
-    status: executedSet.has(tx.id) ? "Executed" : failedSet.has(tx.id) ? "Failed" : "Pending"
+    status: executedSet.has(tx.timestamp) ? "Executed" : failedSet.has(tx.timestamp) ? "Failed" : "Pending"
   }));
 }
 
