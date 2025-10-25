@@ -1,79 +1,129 @@
 import React, { useState } from 'react';
 import { generateKeyPair } from '../services/safe-sdk.service';
+import styles from './KeyGenerator.module.css';
+
+// Helper component for the copy button
+const CopyButton = ({ textToCopy, onCopy, isCopied }) => (
+  <button onClick={() => onCopy(textToCopy)} className={styles.actionButton}>
+    {isCopied ? 'Copied!' : 'Copy'}
+  </button>
+);
 
 export default function KeyGenerator() {
   const [keyPair, setKeyPair] = useState(null);
   const [error, setError] = useState('');
   const [showMnemonic, setShowMnemonic] = useState(false);
+  const [showPrivateKey, setShowPrivateKey] = useState(false);
+  const [copiedKey, setCopiedKey] = useState(null); // 'address', 'private', or 'mnemonic'
 
   const handleGenerateKeyPair = () => {
     try {
       const newKeyPair = generateKeyPair();
       setKeyPair(newKeyPair);
       setError('');
+      setShowMnemonic(false); // Hide on new generation
+      setShowPrivateKey(false); // Hide on new generation
+      setCopiedKey(null); // Reset copy status
     } catch (err) {
       setError(`Failed to generate key pair: ${err.message}`);
       setKeyPair(null);
     }
   };
 
+  const handleCopy = (keyName, text) => {
+    navigator.clipboard.writeText(text);
+    setCopiedKey(keyName);
+    setTimeout(() => setCopiedKey(null), 2000); // Reset after 2 seconds
+  };
+
   return (
-    <div style={styles.container}>
-      <h2>Key Pair Generator</h2>
-      <p style={styles.description}>
-        Generate a new Ethereum key pair for use with Safe multisig. 
-        Make sure to securely store your private key and mnemonic phrase!
+    <div className={styles.container}>
+      <h2 className={styles.title}>Key Pair Generator</h2>
+      <p className={styles.description}>
+        Generate a new Ethereum key pair. 
+        <strong>This is for testing only.</strong>
+        Store your private key and mnemonic phrase securely!
       </p>
-      
       <button 
-        style={styles.button} 
+        className={styles.generateButton}
         onClick={handleGenerateKeyPair}
       >
         Generate New Key Pair
       </button>
 
       {error && (
-        <div style={styles.error}>
-          {error}
-        </div>
+        <div className={styles.error}>{error}</div>
       )}
 
       {keyPair && (
-        <div style={styles.keyInfo}>
-          <h3>Generated Key Pair:</h3>
+        <div className={styles.keyInfo}>
           
-          <div style={styles.keySection}>
-            <h4>Public Address:</h4>
-            <p style={styles.keyText}>{keyPair.publicKey}</p>
+          {/* --- Public Address --- */}
+          <div className={styles.keyField}>
+            <div className={styles.keyHeader}>
+              <span className={styles.keyLabel}>Public Address</span>
+              <CopyButton 
+                textToCopy={keyPair.publicKey}
+                onCopy={() => handleCopy('address', keyPair.publicKey)}
+                isCopied={copiedKey === 'address'}
+              />
+            </div>
+            <code className={styles.keyValue}>{keyPair.publicKey}</code>
           </div>
 
-          <div style={styles.keySection}>
-            <h4>Private Key:</h4>
-            <p style={styles.keyText}>{keyPair.privateKey}</p>
+          {/* --- Private Key --- */}
+          <div className={styles.keyField}>
+            <div className={styles.keyHeader}>
+              <span className={styles.keyLabel}>Private Key</span>
+              <div className={styles.keyActions}>
+                <button 
+                  className={styles.actionButton}
+                  onClick={() => setShowPrivateKey(!showPrivateKey)}
+                >
+                  {showPrivateKey ? 'Hide' : 'Show'}
+                </button>
+                <CopyButton 
+                  textToCopy={keyPair.privateKey}
+                  onCopy={() => handleCopy('private', keyPair.privateKey)}
+                  isCopied={copiedKey === 'private'}
+                />
+              </div>
+            </div>
+            <code className={`${styles.keyValue} ${!showPrivateKey ? styles.obscured : ''}`}>
+              {keyPair.privateKey}
+            </code>
           </div>
 
-          <div style={styles.keySection}>
-            <h4>
-              Mnemonic Phrase:
-              <button 
-                style={styles.toggleButton}
-                onClick={() => setShowMnemonic(!showMnemonic)}
-              >
-                {showMnemonic ? 'Hide' : 'Show'}
-              </button>
-            </h4>
-            {showMnemonic && (
-              <p style={styles.keyText}>{keyPair.mnemonic}</p>
-            )}
+          {/* --- Mnemonic Phrase --- */}
+          <div className={styles.keyField}>
+            <div className={styles.keyHeader}>
+              <span className={styles.keyLabel}>Mnemonic Phrase</span>
+              <div className={styles.keyActions}>
+                <button 
+                  className={styles.actionButton}
+                  onClick={() => setShowMnemonic(!showMnemonic)}
+                >
+                  {showMnemonic ? 'Hide' : 'Show'}
+                </button>
+                <CopyButton 
+                  textToCopy={keyPair.mnemonic}
+                  onCopy={() => handleCopy('mnemonic', keyPair.mnemonic)}
+                  isCopied={copiedKey === 'mnemonic'}
+                />
+              </div>
+            </div>
+            <code className={`${styles.keyValue} ${!showMnemonic ? styles.obscured : ''}`}>
+              {keyPair.mnemonic}
+            </code>
           </div>
-
-          <div style={styles.warningBox}>
-            <h4>⚠️ Important Security Information:</h4>
+          
+          {/* --- Security Warning --- */}
+          <div className={styles.warningBox}>
+            <h4>⚠️ Important Security Information</h4>
             <ul>
-              <li>Save your private key and mnemonic phrase securely</li>
-              <li>Never share your private key or mnemonic phrase with anyone</li>
-              <li>This information will not be shown again</li>
-              <li>The private key and mnemonic give complete control of this address</li>
+              <li><strong>Never</strong> share your private key or mnemonic with anyone.</li>
+              <li>This information will not be shown again once you navigate away.</li>
+              <li>Losing this information will result in permanent loss of access.</li>
             </ul>
           </div>
         </div>
@@ -81,70 +131,3 @@ export default function KeyGenerator() {
     </div>
   );
 }
-
-const styles = {
-  container: {
-    padding: '20px',
-    maxWidth: '800px',
-    margin: '0 auto',
-  },
-  description: {
-    marginBottom: '20px',
-    color: '#666',
-  },
-  button: {
-    padding: '12px 20px',
-    fontSize: '16px',
-    backgroundColor: '#4CAF50',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    marginBottom: '20px',
-  },
-  keyInfo: {
-    marginTop: '20px',
-    padding: '20px',
-    backgroundColor: '#f5f5f5',
-    borderRadius: '8px',
-    border: '1px solid #ddd',
-  },
-  keySection: {
-    marginBottom: '20px',
-  },
-  keyText: {
-    fontFamily: 'monospace',
-    wordBreak: 'break-all',
-    backgroundColor: '#fff',
-    padding: '12px',
-    borderRadius: '4px',
-    border: '1px solid #ddd',
-    margin: '8px 0',
-  },
-  error: {
-    marginTop: '10px',
-    padding: '12px',
-    backgroundColor: '#ffebee',
-    color: '#c62828',
-    borderRadius: '4px',
-    marginBottom: '20px',
-  },
-  warningBox: {
-    marginTop: '20px',
-    padding: '15px',
-    backgroundColor: '#fff3e0',
-    color: '#e65100',
-    borderRadius: '4px',
-    border: '1px solid #ffe0b2',
-  },
-  toggleButton: {
-    marginLeft: '10px',
-    padding: '4px 8px',
-    fontSize: '12px',
-    backgroundColor: '#2196F3',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-  }
-};
