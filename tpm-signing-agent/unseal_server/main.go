@@ -87,6 +87,17 @@ func main() {
 // ---- HTTP Handlers ----
 
 func getAddressHandler(w http.ResponseWriter, r *http.Request) {
+	// Add CORS headers
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	// Handle preflight OPTIONS request
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(200)
+		return
+	}
+
 	if r.Method != "GET" {
 		httpError(w, "method not allowed", 405)
 		return
@@ -112,6 +123,17 @@ type signResponse struct {
 }
 
 func signHandler(w http.ResponseWriter, r *http.Request) {
+	// Add CORS headers
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	// Handle preflight OPTIONS request
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(200)
+		return
+	}
+
 	if r.Method != "POST" {
 		httpError(w, "method not allowed", 405)
 		return
@@ -199,9 +221,15 @@ func signWithPriv(msgHash []byte, priv *ecdsa.PrivateKey) (*signResponse, error)
 	vb := sig65[64] // 0 or 1
 
 	sig64hex := hex.EncodeToString(append(rb, sb...))
-	sig65hex := hex.EncodeToString(sig65)
 	v := int(vb)
 	legacyV := 27 + v
+
+	// Create signature with legacy v value (27/28) instead of raw v (0/1)
+	sig65WithLegacyV := make([]byte, 65)
+	copy(sig65WithLegacyV[:32], rb)      // r component
+	copy(sig65WithLegacyV[32:64], sb)    // s component
+	sig65WithLegacyV[64] = byte(legacyV) // legacy v (27 or 28)
+	sig65hex := hex.EncodeToString(sig65WithLegacyV)
 
 	resp := &signResponse{
 		Signature:      sig64hex,

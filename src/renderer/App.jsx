@@ -15,7 +15,7 @@ import styles from "./App.module.css";
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState('safe-setup'); // Start with SafeSetup
-  const [safeAddress, setSafeAddress] = useState('0x601778F8fa32298E826a8aBEf1E3b31515626845');
+  const [safeAddress, setSafeAddress] = useState('0x601778f8fa32298e826a8abef1e3b31515626845');
   const [chainId, setChainId] = useState(11155111); // Sepolia
 
   const renderPage = () => {
