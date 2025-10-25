@@ -9,7 +9,7 @@ tpm-signing-agent/-
 tpm-signing-agent/.server-pid
 tpm-signing-agent/.tpm-config
 tpm-signing-agent/tmp-server.log
-tpm-signing-agent/tpm-signing-server
+# tpm-signing-agent/tpm-signing-server
 tpm-signing-agent/key-generator
 tpm-signing-agent/*.exe
 tpm-signing-agent/unseal_server/-
