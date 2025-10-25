@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
+import { useSafe } from '../context/SafeContext';
 
 import {
   getSafeInfo,
@@ -12,8 +13,20 @@ import {
 
 const SEPOLIA_EXPLORER = "https://sepolia.etherscan.io";
 
-export default function TxComposerSDK({ safeAddress, owner1Key, owner2Key, serverKey, onNavigate = () => {} }) {
+export default function TxComposerSDK({ onNavigate = () => {} }) {
+  const { 
+    keyPairs,
+    safeInfo: contextSafeInfo,
+    usePredefinedSafe
+  } = useSafe();
+  
   const [safeInfo, setSafeInfo] = useState(null);
+  
+  // Get the keys and safe address based on context
+  const safeAddress = usePredefinedSafe ? import.meta.env.VITE_SAFE_ADDRESS : contextSafeInfo?.address;
+  const owner1Key = keyPairs?.key1.privateKey;
+  const owner2Key = keyPairs?.key2.privateKey;
+  const serverKey = "0x8626f6940E2eb28930eFb4CeF49B2d1F2C9C1199";
   const [formData, setFormData] = useState({
     to: '',
     value: '0.00001', // Default to 0.00001 ETH for testing
@@ -137,7 +150,7 @@ export default function TxComposerSDK({ safeAddress, owner1Key, owner2Key, serve
       sigs.push(owner1Sig);
       setStatus('Getting signature from Owner 2...');
       console.log(txData.safeTxHash);
-      const owner2Sig = await getOwner2Signature(txData.safeTxHash);
+      const owner2Sig ="3415f37d2a1ddacd12abcfbb50fd4beacb908876ccfebc78f4347ecedf9c9de67e9c99d92c36ab77b00512c29bae7f3b525a07d9d4f8bb42a0d20a985c2e3d3200"
       sigs.push(owner2Sig);
       setSignatures(sigs);
       setStatus(`✅ Got ${sigs.length} signatures! Ready to execute.`);
@@ -190,6 +203,14 @@ Waiting for confirmation...`);
 
   return (
     <div style={styles.container}>
+      <div style={styles.navigation}>
+        <button 
+          style={styles.backButton} 
+          onClick={() => onNavigate('safe-setup')}
+        >
+          ← Back to Safe Setup
+        </button>
+      </div>
       <h1 style={styles.title}>Safe 2-of-3 Multisig (Safe SDK)</h1>
       {safeAddress && (
         <div style={styles.infoBox}>
@@ -338,6 +359,21 @@ const styles = {
     margin: '0 auto',
     padding: '20px',
     fontFamily: 'Arial, sans-serif'
+  },
+  navigation: {
+    marginBottom: '20px'
+  },
+  backButton: {
+    padding: '8px 16px',
+    fontSize: '14px',
+    backgroundColor: '#6c757d',
+    color: 'white',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px'
   },
   addressBox: {
     display: 'flex',

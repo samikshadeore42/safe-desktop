@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ethers } from 'ethers';
 import Safe from '@safe-global/protocol-kit';
 import TxComposerSDK from './TxComposer.jsx';
+import { useSafe } from '../context/SafeContext';
 
 const RPC_URL = import.meta.env.VITE_RPC_URL;
 const CHAIN_ID = BigInt(import.meta.env.VITE_CHAIN_ID || 11155111);
@@ -10,13 +11,16 @@ const SERVER_URL = 'http://localhost:3000';
 const PREDEFINED_SAFE = import.meta.env.VITE_SAFE_ADDRESS;
 
 export default function SafeSetup() {
-  const [keyPairs, setKeyPairs] = useState(null);
-  const [serverPublicKey, setServerPublicKey] = useState(null);
+  const { 
+    keyPairs, setKeyPairs,
+    safeInfo, setSafeInfo,
+    serverPublicKey, setServerPublicKey,
+    usePredefinedSafe, setUsePredefinedSafe
+  } = useSafe();
+  
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
-  const [safeInfo, setSafeInfo] = useState(null);
   const [showComposer, setShowComposer] = useState(false);
-  const [usePredefinedSafe, setUsePredefinedSafe] = useState(false);
   const [checkedBalance, setCheckedBalance] = useState(false);
 
   const saveKeyAndAddressToFile = (privateKey, safeAddress) => {
@@ -68,7 +72,7 @@ export default function SafeSetup() {
   const handleGetServerPublicKey = () => {
     try {
       setError('');
-      const hardcodedServerKey = "0x8626f6940E2eb28930eFb4CeF49B2d1F2C9C1199";  // This is a hardcoded key for testing
+      const hardcodedServerKey = "0xAB077537DbC54088b6c2Da1a838300Bb8152165E";  // This is a hardcoded key for testing
       setServerPublicKey(hardcodedServerKey);
       setStatus(`✅ Server public key: ${hardcodedServerKey}\nNote: This is currently a hardcoded key for testing`);
     } catch (err) {
@@ -79,7 +83,7 @@ export default function SafeSetup() {
 
   // Deploy Safe with 3 owners: 2 local (key1 + key2) and server (public key)
   const handleDeploySafe = async () => {
-    const hardcodedServerKey = "0x8626f6940E2eb28930eFb4CeF49B2d1F2C9C1199"; //only for testing
+    const hardcodedServerKey = "0xAB077537DbC54088b6c2Da1a838300Bb8152165E"; //only for testing
     if (!keyPairs || !serverPublicKey) {
       setError('Please generate keys and get server public key first.');
       return;
@@ -159,19 +163,22 @@ export default function SafeSetup() {
 
   // Already defined later in the code
 
-  if (showComposer && keyPairs && (safeInfo || (usePredefinedSafe && PREDEFINED_SAFE))) {
+  if (showComposer && (safeInfo || (usePredefinedSafe && PREDEFINED_SAFE))) {
     const safeToUse = usePredefinedSafe ? PREDEFINED_SAFE : safeInfo.address;
-    
-    // Always use generated keys
-    const owner1KeyToUse = keyPairs.key1.privateKey;
-    const owner2KeyToUse = keyPairs.key2.privateKey;
-
+    // Use generated keys if available, otherwise empty strings
+    const owner1KeyToUse = keyPairs?.key1?.privateKey || '';
+    const owner2KeyToUse = keyPairs?.key2?.privateKey || '';
     return (
       <TxComposerSDK
         safeAddress={safeToUse}
         owner1Key={owner1KeyToUse}
         owner2Key={owner2KeyToUse}
         serverKey={"0x8626f6940E2eb28930eFb4CeF49B2d1F2C9C1199"}
+        onNavigate={(page) => {
+          if (page === 'safe-setup') {
+            setShowComposer(false);
+          }
+        }}
       />
     );
   }
@@ -234,10 +241,6 @@ Your address to fund: ${keyPairs.key1.address}
           <button 
             style={{...styles.button, backgroundColor: '#9C27B0'}} 
             onClick={() => {
-              if (!keyPairs) {
-                setError('Please generate keys first before using the predefined Safe');
-                return;
-              }
               setUsePredefinedSafe(true);
               setShowComposer(true);
             }}
