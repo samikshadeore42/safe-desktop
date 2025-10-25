@@ -1,0 +1,222 @@
+/* --- Base Styles --- */
+.container {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: #212121;
+  line-height: 1.6;
+}
+
+.title {
+  font-size: 2.25rem;
+  font-weight: 700;
+  color: #222b45;
+  margin-bottom: 16px;
+}
+
+/* --- Page Header --- */
+.pageHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  background: #f8f9fa;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  margin-bottom: 24px;
+  font-family: 'Fira Mono', monospace;
+  font-size: 0.95rem;
+}
+.safeInfo, .chainInfo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.safeInfo span, .chainInfo span {
+  font-weight: 500;
+  color: #555;
+}
+.safeInfo code, .chainInfo code {
+  color: #0056b3;
+  word-break: break-all;
+}
+
+/* --- Sections --- */
+.section {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1.5px solid #e0e0e0;
+}
+.sectionTitle {
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: #222b45;
+  margin: 0 0 4px 0;
+}
+.subtle {
+  color: #666;
+  margin-top: 0;
+  margin-bottom: 20px;
+  font-size: 0.95rem;
+}
+
+/* --- Transaction Cards --- */
+.card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(60, 60, 120, 0.06);
+  margin-bottom: 16px;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  /* This is the key: a colored left border for status */
+  border-left: 5px solid #ccc; 
+}
+.card:hover {
+  box-shadow: 0 6px 16px rgba(60, 60, 120, 0.1);
+}
+
+/* Card Status Colors */
+.card.success { border-left-color: #4CAF50; }
+.card.failure { border-left-color: #f44336; }
+.card.multisig { border-left-color: #2196F3; }
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+.cardTitle {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #222b45;
+}
+.card.success .cardTitle { color: #2e7d32; }
+.card.failure .cardTitle { color: #c62828; }
+.card.multisig .cardTitle { color: #1565c0; }
+
+.cardTimestamp {
+  font-size: 0.85rem;
+  color: #666;
+  font-weight: 500;
+}
+.cardBody {
+  padding: 16px;
+}
+
+/* --- Card Data Rows (Grid Layout) --- */
+.cardRow {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  align-items: start;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px dashed #f5f5f5;
+}
+.cardRow:last-child {
+  border-bottom: none;
+}
+.cardLabel {
+  font-size: 0.9rem;
+  color: #555;
+  font-weight: 500;
+}
+.cardValue {
+  font-size: 0.95rem;
+  word-break: break-all;
+}
+.cardValueSmall {
+  font-family: 'Fira Mono', monospace;
+  font-size: 0.85rem;
+  color: #444;
+  word-break: break-all;
+}
+.cardValue code, .cardValueSmall code {
+  font-family: 'Fira Mono', monospace;
+  font-size: 0.9rem;
+}
+.valueEth {
+  font-weight: 600;
+  color: #2e7d32;
+}
+.cardLink {
+  color: #1976d2;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+.cardLink code {
+  color: #1976d2;
+  word-break: break-all;
+}
+.cardLink:hover, .cardLink:hover code {
+  color: #0d47a1;
+  text-decoration: underline;
+}
+
+/* --- Details (Collapsible) --- */
+.details {
+  margin-top: 12px;
+  border-top: 1px solid #f0f0f0;
+  padding-top: 12px;
+}
+.details summary {
+  cursor: pointer;
+  font-weight: 500;
+  color: #555;
+  font-size: 0.9rem;
+}
+
+/* --- Page States (Loading, Error, Empty) --- */
+.loadingContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: #555;
+  padding: 40px;
+}
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid #e0e0e0;
+  border-top-color: #2196F3;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.error {
+  padding: 14px 18px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  font-weight: 500;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  background: #ffebee;
+  color: #c62828;
+  border: 1px solid #ef9a9a;
+}
+
+.emptyState {
+  padding: 40px;
+  text-align: center;
+  color: #777;
+  font-style: italic;
+  font-size: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px dashed #e0e0e0;
+}
+
+/* --- Global Code Style --- */
+code {
+  font-family: 'Fira Mono', 'Courier New', monospace;
+  background: #f1f3f5;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}

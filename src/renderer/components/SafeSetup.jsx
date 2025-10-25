@@ -4,6 +4,9 @@ import Safe from '@safe-global/protocol-kit';
 import TxComposerSDK from './TxComposer.jsx';
 import { useSafe } from '../context/SafeContext';
 
+// Import the new CSS Module file
+import styles from './SafeSetup.module.css'; 
+
 const RPC_URL = import.meta.env.VITE_RPC_URL;
 const CHAIN_ID = BigInt(import.meta.env.VITE_CHAIN_ID || 11155111);
 const SERVER_URL = 'http://localhost:3000';
@@ -42,9 +45,9 @@ export default function SafeSetup() {
   };
 
 
-  // Generate 2 local key pairs and show to user
   const handleGenerateTwoKeys = () => {
     try {
+      setUsePredefinedSafe(false); // Reset to dynamic Safe mode
       const wallet1 = ethers.Wallet.createRandom();
       const wallet2 = ethers.Wallet.createRandom();
 
@@ -61,10 +64,10 @@ export default function SafeSetup() {
         },
       });
 
-      setStatus('Generated two keypairs. Please SAVE the private key of Key 1 securely!');
+      setStatus('✅ Generated two keypairs. Please SAVE the private key of Key 1 securely!');
       setError('');
     } catch (err) {
-      setError('Failed to generate key pairs: ' + err.message);
+      setError('❌ Failed to generate key pairs: ' + err.message);
       setStatus('');
     }
   };
@@ -107,14 +110,13 @@ export default function SafeSetup() {
     }
   };
 
-  // Deploy Safe with 3 owners: 2 local (key1 + key2) and server (public key)
   const handleDeploySafe = async () => {
     if (!keyPairs || !serverPublicKey || !fetchedServerKey) {
       setError('Please generate keys and get server public key first.');
       return;
     }
     try {
-      setStatus('Deploying Safe contract...');
+      setStatus('⏳ Deploying Safe contract...');
       setError('');
 
       const owners = [
@@ -126,7 +128,6 @@ export default function SafeSetup() {
 
       console.log('Deploying with owners:', owners);
 
-
       const signer = keyPairs.key1.privateKey;
       const protocolKit = await Safe.init({
         provider: RPC_URL,
@@ -136,8 +137,6 @@ export default function SafeSetup() {
         },
         chainId: CHAIN_ID
       });
-
-
 
       const predictedAddress = await protocolKit.getAddress();
       
@@ -181,12 +180,10 @@ export default function SafeSetup() {
 
       saveKeyAndAddressToFile(keyPairs.key1.privateKey, predictedAddress);
     } catch (err) {
-      setError(`${err.message}`);
+      setError(`❌ ${err.message}`);
       setStatus('');
     }
   };
-
-  // Already defined later in the code
 
   if (showComposer && (safeInfo || (usePredefinedSafe && PREDEFINED_SAFE))) {
     const safeToUse = usePredefinedSafe ? PREDEFINED_SAFE : safeInfo.address;
@@ -209,7 +206,7 @@ export default function SafeSetup() {
 
   const checkBalance = async () => {
     if (!keyPairs) {
-      setError('Please generate keys first');
+      setError('❌ Please generate keys first');
       return;
     }
 
@@ -222,16 +219,16 @@ export default function SafeSetup() {
       if (balance.isZero()) {
         setStatus(`Current balance: ${balanceInEth} ETH\nYou need Sepolia ETH to deploy a Safe. Click "Get Test ETH" to visit faucets.`);
       } else {
-        setStatus(`Current balance: ${balanceInEth} ETH\nYou have enough ETH to proceed!`);
+        setStatus(`✅ Current balance: ${balanceInEth} ETH\nYou have enough ETH to proceed!`);
       }
     } catch (err) {
-      setError('Failed to check balance: ' + err.message);
+      setError('❌ Failed to check balance: ' + err.message);
     }
   };
 
   const handleGetTestEth = () => {
     if (!keyPairs) {
-      setError('Please generate keys first');
+      setError('❌ Please generate keys first');
       return;
     }
     
@@ -255,15 +252,21 @@ Your address to fund: ${keyPairs.key1.address}
   };
 
   return (
-    <div style={styles.container}>
-      <h1>Safe 2-of-3 Multisig Setup</h1>
+    <div className={styles.container}>
+      <h1 className={styles.title}>Safe 2-of-3 Multisig Setup</h1>
+
+      {/* Status messages are now at the top for better visibility */}
+      {status && <div className={styles.status}>{status}</div>}
+      {error && <div className={styles.error}>{error}</div>}
 
       {!usePredefinedSafe && !safeInfo && PREDEFINED_SAFE && (
-        <div style={styles.section}>
-          <h2>Quick Start Option</h2>
+        <div className={styles.section}>
+          <h2 className={styles.sectionTitle}>
+            🚀 Quick Start Option
+          </h2>
           <p>Use an existing pre-deployed Safe to start testing immediately:</p>
           <button 
-            style={{...styles.button, backgroundColor: '#9C27B0'}} 
+            className={`${styles.button} ${styles.btnPurple}`}
             onClick={() => {
               setUsePredefinedSafe(true);
               setShowComposer(true);
@@ -271,36 +274,57 @@ Your address to fund: ${keyPairs.key1.address}
           >
             Use Pre-deployed Safe ({PREDEFINED_SAFE.substring(0, 6)}...{PREDEFINED_SAFE.substring(38)})
           </button>
-          <p style={styles.note}>Or continue below to deploy your own Safe</p>
+          <p className={styles.note}>Or continue below to deploy your own Safe</p>
         </div>
       )}
 
-      <div style={styles.section}>
-        <h2>Step 1: Generate 2 Local Key Pairs</h2>
-        <button style={styles.button} onClick={handleGenerateTwoKeys}>Generate Keys</button>
+      <div className={styles.section}>
+        <h2 className={styles.sectionTitle}>
+          <span className={styles.stepNumber}>1</span>
+          Generate 2 Local Key Pairs
+        </h2>
+        <button className={`${styles.button} ${styles.btnGreen}`} onClick={handleGenerateTwoKeys}>
+          Generate Keys
+        </button>
         {keyPairs && (
           <>
-            <div style={styles.keyBox}>
+            <div className={`${styles.infoBox} ${styles.warning}`}>
               <h3>Key 1 (Save privately!)</h3>
-              <p>Address: {keyPairs.key1.address}</p>
-              <p>Private Key: <code>{keyPairs.key1.privateKey}</code></p>
-              <p>Mnemonic: <code>{keyPairs.key1.mnemonic}</code></p>
+              <div className={styles.keyItem}>
+                <label>Address</label>
+                <code className={styles.code}>{keyPairs.key1.address}</code>
+              </div>
+              <div className={styles.keyItem}>
+                <label>Private Key</label>
+                <code className={styles.code}>{keyPairs.key1.privateKey}</code>
+              </div>
+              <div className={styles.keyItem}>
+                <label>Mnemonic</label>
+                <code className={styles.code}>{keyPairs.key1.mnemonic}</code>
+              </div>
 
-              <h3>Key 2</h3>
-              <p>Address: {keyPairs.key2.address}</p>
-              <p>Private Key: <code>{keyPairs.key2.privateKey}</code></p>
-              <p>Mnemonic: <code>{keyPairs.key2.mnemonic}</code></p>
+              <h3>Key 2 (For App Use)</h3>
+              <div className={styles.keyItem}>
+                <label>Address</label>
+                <code className={styles.code}>{keyPairs.key2.address}</code>
+              </div>
+              <div className={styles.keyItem}>
+                <label>Private Key</label>
+                <code className={`${styles.code} ${styles.obscured}`}>
+                  {keyPairs.key2.privateKey}
+                </code>
+              </div>
             </div>
             
             {!usePredefinedSafe && (
-              <div style={styles.fundingBox}>
+              <div className={`${styles.infoBox} ${styles.info}`}>
                 <h3>Get Sepolia Test ETH</h3>
-                <p>You need some test ETH to deploy your Safe</p>
-                <div style={styles.buttonGroup}>
-                  <button style={{...styles.button, backgroundColor: '#FF9800'}} onClick={handleGetTestEth}>
+                <p>You need some test ETH (for <strong>Key 1</strong>) to deploy your Safe.</p>
+                <div className={styles.buttonGroup}>
+                  <button className={`${styles.button} ${styles.btnOrange}`} onClick={handleGetTestEth}>
                     Get Test ETH
                   </button>
-                  <button style={{...styles.button, backgroundColor: '#2196F3'}} onClick={checkBalance}>
+                  <button className={`${styles.button} ${styles.btnBlue}`} onClick={checkBalance}>
                     Check Balance
                   </button>
                 </div>
@@ -310,87 +334,54 @@ Your address to fund: ${keyPairs.key1.address}
         )}
       </div>
 
-      <div style={styles.section}>
-        <h2>Step 2: Get Server Public Key</h2>
+      <div className={styles.section}>
+        <h2 className={styles.sectionTitle}>
+          <span className={styles.stepNumber}>2</span>
+          Get Server Public Key
+        </h2>
         <p>Request the server's public key. The server will generate and securely store its private key.</p>
-        <button style={styles.button} onClick={handleGetServerPublicKey}>Request Server Key</button>
+        <button className={`${styles.button} ${styles.btnGreen}`} onClick={handleGetServerPublicKey}>
+          Request Server Key
+        </button>
         {serverPublicKey && (
-          <div style={styles.keyInfo}>
+          <div className={`${styles.infoBox} ${styles.success}`}>
             <p><strong>Server Public Key:</strong></p>
-            <code style={styles.code}>{serverPublicKey}</code>
-            <p style={styles.note}>Note: The server securely manages its own private key.</p>
+            <code className={styles.code}>{serverPublicKey}</code>
+            <p className={styles.note}>Note: The server securely manages its own private key.</p>
           </div>
         )}
       </div>
 
-      <div style={styles.section}>
-        <h2>Step 3: Deploy Safe Contract</h2>
-        <button style={styles.deployButton} onClick={handleDeploySafe}>Deploy Safe</button>
+      <div className={styles.section}>
+        <h2 className={styles.sectionTitle}>
+          <span className={styles.stepNumber}>3</span>
+          Deploy Safe Contract
+        </h2>
+        <button 
+          className={`${styles.button} ${styles.btnBlue}`} 
+          onClick={handleDeploySafe}
+          disabled={!keyPairs || !serverPublicKey}
+        >
+          Deploy Safe
+        </button>
       </div>
 
-      {/* Show "Open Transaction Composer" button after deployment */}
       {safeInfo && (
-        <div style={styles.section}>
-          <h2>Next</h2>
-          <p><strong>Safe:</strong> {safeInfo.address}</p>
+        <div className={styles.section}>
+          <h2 className={styles.sectionTitle}>
+            🎉 Next Steps
+          </h2>
+          <p>Your new Safe is deployed! You can now proceed to the transaction composer.</p>
+          <p><strong>Safe Address:</strong></p>
+          <code className={styles.code}>{safeInfo.address}</code>
           <button
-            style={{ ...styles.deployButton, backgroundColor: '#8E44AD' }}
+            className={`${styles.button} ${styles.btnPurple}`}
             onClick={() => setShowComposer(true)}
           >
             Open Transaction Composer
           </button>
         </div>
       )}
-
-      {status && <p style={styles.status}>{status}</p>}
-      {error && <p style={styles.error}>{error}</p>}
     </div>
   );
 }
-
-const styles = {
-  container: { maxWidth: 900, margin: 'auto', padding: 20, fontFamily: 'Arial, sans-serif' },
-  section: { marginBottom: 30, padding: 20, border: '1px solid #ddd', borderRadius: 8, backgroundColor: '#f9f9f9' },
-  button: { padding: '12px 20px', backgroundColor: '#4CAF50', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 16, margin: '0 10px 10px 0' },
-  deployButton: { padding: '12px 20px', backgroundColor: '#2196F3', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 16 },
-  keyBox: { backgroundColor: '#fff3cd', border: '2px solid #ff9800', borderRadius: 4, padding: 15, marginBottom: 20 },
-  status: { padding: 10, backgroundColor: '#e7f3ff', color: '#0066cc', borderRadius: 4, marginTop: 10, whiteSpace: 'pre-wrap' },
-  error: { padding: 10, backgroundColor: '#ffe7e7', color: '#cc0000', borderRadius: 4, marginTop: 10 },
-  keyInfo: { 
-    backgroundColor: '#e8f5e9', 
-    border: '1px solid #66bb6a',
-    borderRadius: 8, 
-    padding: 20,
-    marginTop: 15 
-  },
-  code: { 
-    display: 'block',
-    padding: 15,
-    backgroundColor: '#f5f5f5',
-    border: '1px solid #ddd',
-    borderRadius: 4,
-    fontFamily: 'monospace',
-    fontSize: '14px',
-    overflowWrap: 'break-word',
-    marginTop: 10,
-    marginBottom: 10
-  },
-  note: {
-    color: '#666',
-    fontStyle: 'italic',
-    marginTop: 10,
-    fontSize: '14px'
-  },
-  fundingBox: {
-    backgroundColor: '#e3f2fd',
-    border: '1px solid #42a5f5',
-    borderRadius: 4,
-    padding: 15,
-    marginTop: 20
-  },
-  buttonGroup: {
-    display: 'flex',
-    gap: '10px',
-    marginTop: '10px'
-  }
-};

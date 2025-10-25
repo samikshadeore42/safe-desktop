@@ -1,0 +1,183 @@
+/* --- Base Styles --- */
+.container {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: #212121;
+  line-height: 1.6;
+}
+
+.title {
+  font-size: 2.25rem;
+  font-weight: 700;
+  color: #222b45;
+  margin-bottom: 8px;
+}
+
+.subtle {
+  color: #666;
+  margin-top: 0;
+  margin-bottom: 24px;
+  font-size: 1rem;
+}
+
+/* --- Table Styles --- */
+.tableWrapper {
+  width: 100%;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e0e0e0;
+  box-shadow: 0 4px 16px rgba(60, 60, 120, 0.07);
+  overflow: hidden; /* Clips the table header to the border-radius */
+}
+
+/* Add overflow for mobile responsiveness */
+@media (max-width: 800px) {
+  .tableWrapper {
+    overflow-x: auto;
+  }
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 700px; /* Ensures table is wide enough for mobile scroll */
+}
+
+.table th,
+.table td {
+  padding: 14px 18px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+/* Table Header */
+.table th {
+  background: #f8f9fa;
+  border-bottom: 2px solid #e0e0e0;
+  color: #555;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Table Body */
+.table tbody tr {
+  transition: background-color 0.15s ease-out;
+}
+
+.table tbody tr:not(:last-child) td {
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.table tbody tr:hover {
+  background-color: #f5faff;
+}
+
+/* --- Cell-Specific Styles --- */
+.hashCell code {
+  font-family: 'Fira Mono', monospace;
+  font-size: 0.95rem;
+  color: #1976d2;
+  background: #e3f2fd;
+  padding: 3px 6px;
+  border-radius: 4px;
+}
+.hashCell a {
+  text-decoration: none;
+  font-weight: 500;
+}
+.hashCell a:hover code {
+  background: #bbdefb;
+  color: #0d47a1;
+}
+
+.valueCell {
+  font-weight: 500;
+  color: #333;
+  font-size: 0.95rem;
+  text-align: right;
+  font-family: 'Fira Mono', monospace;
+}
+
+.dateCell {
+  color: #666;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+/* --- Status Badges --- */
+.status {
+  display: inline-block;
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background-color: #e0e0e0;
+  color: #424242;
+}
+.success {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+}
+.failed {
+  background-color: #ffebee;
+  color: #c62828;
+}
+.pending {
+  background-color: #fff8e1;
+  color: #ff8f00;
+}
+.proposed {
+  background-color: #e3f2fd;
+  color: #1565c0;
+}
+.signed {
+  background-color: #f3e5f5;
+  color: #6a1b9a;
+}
+
+/* --- Page States (Loading, Error, Empty) --- */
+.loadingState,
+.errorState,
+.emptyState {
+  padding: 60px 20px;
+  text-align: center;
+  font-size: 1.1rem;
+  border-radius: 12px;
+}
+
+.loadingState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-weight: 500;
+  color: #555;
+}
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid #e0e0e0;
+  border-top-color: #2196F3;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.errorState {
+  background: #ffebee;
+  color: #c62828;
+  border: 1px solid #ef9a9a;
+  font-weight: 500;
+}
+
+.emptyState {
+  color: #777;
+  font-style: italic;
+  background: #f8f9fa;
+  border: 1px dashed #e0e0e0;
+}
