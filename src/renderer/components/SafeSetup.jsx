@@ -175,9 +175,43 @@ export default function SafeSetup() {
       setStatus('⏳ Waiting for deployment transaction to be mined...');
       await txResponse.wait();
 
+
+      // --- Auto-fund the Safe with all available ETH minus dynamically estimated gas cost (fixed logic) ---
+      setStatus('⏳ Funding Safe with all available ETH (minus estimated gas cost)...');
+      try {
+        // Re-fetch balance after deployment (since deployment cost gas)
+        const postDeployBalance = await wallet.getBalance();
+        const provider = wallet.provider;
+        const gasPrice = await provider.getGasPrice();
+        // Step 1: Estimate gas with value = 0
+        const gasLimit = await provider.estimateGas({
+          to: predictedAddress,
+          from: wallet.address,
+          value: 0
+        });
+        // Step 2: Calculate max sendable value with safety buffer
+        const gasCost = gasLimit.mul(gasPrice);
+        const safetyBuffer = ethers.utils.parseEther('0.0001'); // 0.0001 ETH buffer
+        let fundAmount = postDeployBalance.sub(gasCost).sub(safetyBuffer);
+        if (fundAmount.lte(0)) {
+          setStatus(`✅ Safe deployed at: ${predictedAddress} (⚠️ Not enough ETH left to fund Safe after gas and buffer)`);
+        } else {
+          // Step 3: Send max value with estimated gas and buffer
+          const fundTx = await wallet.sendTransaction({
+            to: predictedAddress,
+            value: fundAmount,
+            gasLimit,
+            gasPrice
+          });
+          await fundTx.wait();
+          setStatus(`✅ Safe deployed and maximally funded at: ${predictedAddress}`);
+        }
+      } catch (fundErr) {
+        setStatus(`✅ Safe deployed at: ${predictedAddress} (⚠️ Auto-funding failed: ${fundErr.message})`);
+      }
+
       const newSafeInfo = { address: predictedAddress, privateKey: keyPairs.key1.privateKey };
       setSafeInfo(newSafeInfo);
-      setStatus(`✅ Safe deployed at: ${predictedAddress}`);
       setError('');
 
       saveKeyAndAddressToFile(keyPairs.key1.privateKey, predictedAddress);
