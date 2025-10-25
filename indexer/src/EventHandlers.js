@@ -123,51 +123,18 @@ Safe.RemovedOwner.handler(async ({event, context}) => {
 });
 
 
-// Safe.SafeMultiSigTransaction.handler(async ({event, context}) => {
-//   let safeAddress = "";
-//   if (event.srcAddress && typeof event.srcAddress === "string") {
-//     safeAddress = event.srcAddress.toLowerCase();
-//   } else {
-//     // Log and skip or handle gracefully
-//     console.error("[SafeMultiSigTransaction] Missing event.srcAddress", event);
-//     return;
-//   }
-//   const txHash = event.txHash || event.transactionHash || event.transaction?.hash || "";
-//   const entity = {
-//     id: `${event.chainId}_${event.block.number}_${event.logIndex}`,
-//     to: event.params.to,
-//     value: event.params.value,
-//     data: event.params.data,
-//     operation: event.params.operation,
-//     safeTxGas: event.params.safeTxGas,
-//     baseGas: event.params.baseGas,
-//     gasPrice: event.params.gasPrice,
-//     gasToken: event.params.gasToken,
-//     refundReceiver: event.params.refundReceiver,
-//     signatures: event.params.signatures,
-//     additionalInfo: event.params.additionalInfo,
-//     timestamp: event.block.timestamp,
-//     safeAddress, // now is always a string, or handler exits
-//     txHash,
-//   };
-
-//   context.Safe_SafeMultiSigTransaction.set(entity);
-// });
-
-
 Safe.SafeMultiSigTransaction.handler(async ({event, context}) => {
-  console.log("=== DEBUG SafeMultiSigTransaction ===");
-  console.log("event keys:", Object.keys(event));
-  console.log("event.transaction:", event.transaction);
-  console.log("event.transactionHash:", event.transactionHash);
-  console.log("event.log:", event.log);
-  console.log("=====================================");
-  
-  const txHash = event.transaction?.hash || event.transactionHash || event.log?.transactionHash || "";
-  
+  let safeAddress = "";
+  if (event.srcAddress && typeof event.srcAddress === "string") {
+    safeAddress = event.srcAddress.toLowerCase();
+  } else {
+    // Log and skip or handle gracefully
+    console.error("[SafeMultiSigTransaction] Missing event.srcAddress", event);
+    return;
+  }
+  const txHash = event.txHash || event.transactionHash || event.transaction?.hash || "";
   const entity = {
     id: `${event.chainId}_${event.block.number}_${event.logIndex}`,
-    txHash,
     to: event.params.to,
     value: event.params.value,
     data: event.params.data,
@@ -180,9 +147,42 @@ Safe.SafeMultiSigTransaction.handler(async ({event, context}) => {
     signatures: event.params.signatures,
     additionalInfo: event.params.additionalInfo,
     timestamp: event.block.timestamp,
-    safeAddress: event.address.toLowerCase(),
+    safeAddress, // now is always a string, or handler exits
+    txHash,
   };
 
   context.Safe_SafeMultiSigTransaction.set(entity);
 });
+
+
+// Safe.SafeMultiSigTransaction.handler(async ({event, context}) => {
+//   console.log("=== DEBUG SafeMultiSigTransaction ===");
+//   console.log("event keys:", Object.keys(event));
+//   console.log("event.transaction:", event.transaction);
+//   console.log("event.transactionHash:", event.transactionHash);
+//   console.log("event.log:", event.log);
+//   console.log("=====================================");
+  
+//   const txHash = event.transaction?.hash || event.transactionHash || event.log?.transactionHash || "";
+  
+//   const entity = {
+//     id: `${event.chainId}_${event.block.number}_${event.logIndex}`,
+//     txHash,
+//     to: event.params.to,
+//     value: event.params.value,
+//     data: event.params.data,
+//     operation: event.params.operation,
+//     safeTxGas: event.params.safeTxGas,
+//     baseGas: event.params.baseGas,
+//     gasPrice: event.params.gasPrice,
+//     gasToken: event.params.gasToken,
+//     refundReceiver: event.params.refundReceiver,
+//     signatures: event.params.signatures,
+//     additionalInfo: event.params.additionalInfo,
+//     timestamp: event.block.timestamp,
+//     safeAddress: event.address.toLowerCase(),
+//   };
+
+//   context.Safe_SafeMultiSigTransaction.set(entity);
+// });
 

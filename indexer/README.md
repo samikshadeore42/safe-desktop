@@ -2,19 +2,27 @@
 
 *Please refer to the [documentation website](https://docs.envio.dev) for a thorough guide on all [Envio](https://envio.dev) indexer features*
 
+Visit http://localhost:8080 to see the GraphQL Playground, local password is `testing`.
+
+step1: pnpm i
+
+
+### Generate files from `config.yaml` or `schema.graphql`
+
+```bash
+pnpm run codegen
+```
+
+step3 cd generated
+docker compose up
+
 ### Run
 
 ```bash
 pnpm dev
 ```
+<!-- TUI_OFF=true pnpm start -->
 
-Visit http://localhost:8080 to see the GraphQL Playground, local password is `testing`.
-
-### Generate files from `config.yaml` or `schema.graphql`
-
-```bash
-pnpm codegen
-```
 
 ### Pre-requisites
 

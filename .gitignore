@@ -12,3 +12,8 @@ tpm-signing-agent/tmp-server.log
 tpm-signing-agent/tpm-signing-server
 tpm-signing-agent/key-generator
 tpm-signing-agent/*.exe
+
+release
+yarn.lock
+dist
+.yarn

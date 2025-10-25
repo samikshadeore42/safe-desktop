@@ -103,7 +103,6 @@ export async function fetchTxLifecycleData(safeAddress) {
         order_by: {timestamp: desc}
       ) {
         id
-        txHash
         to
         value
         timestamp
