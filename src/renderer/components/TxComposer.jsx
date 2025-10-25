@@ -26,7 +26,6 @@ export default function TxComposerSDK({ onNavigate = () => {} }) {
   const safeAddress = usePredefinedSafe ? import.meta.env.VITE_SAFE_ADDRESS : contextSafeInfo?.address;
   const owner1Key = keyPairs?.key1.privateKey;
   const owner2Key = keyPairs?.key2.privateKey;
-  const serverKey = "0x8626f6940E2eb28930eFb4CeF49B2d1F2C9C1199";
   const [formData, setFormData] = useState({
     to: '',
     value: '0.00001', // Default to 0.00001 ETH for testing
@@ -37,11 +36,36 @@ export default function TxComposerSDK({ onNavigate = () => {} }) {
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const [balance, setBalance] = useState(null);
+  const [serverKey, setServerKey] = useState(null);
+
+  // Fetch server address from TPM endpoint
+  const fetchServerAddress = async () => {
+    try {
+      const response = await fetch('http://localhost:8080/address');
+      if (!response.ok) {
+        throw new Error(`Failed to fetch server address: ${response.statusText}`);
+      }
+      const data = await response.json();
+      setServerKey(data.address);
+    } catch (err) {
+      console.error('Failed to fetch server address:', err);
+      setError(`Failed to fetch TPM server address: ${err.message}`);
+    }
+  };
+
+  useEffect(() => {
+    // Fetch server address on component mount
+    fetchServerAddress();
+  }, []);
 
   useEffect(() => {
     // Only proceed if we have all required keys and address
     if (!safeAddress || !owner1Key || !owner2Key || !serverKey) {
-      setError('Missing required keys or Safe address');
+      if (safeAddress && owner1Key && owner2Key && !serverKey) {
+        setStatus('Fetching TPM server address...');
+      } else {
+        setError('Missing required keys or Safe address');
+      }
       return;
     }
 
@@ -138,7 +162,29 @@ export default function TxComposerSDK({ onNavigate = () => {} }) {
       setStatus('');
     }
   };
-
+  const getTPMSignature = async (safeTxHash) => {
+    try {
+      const response = await fetch('http://localhost:8080/sign', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          txHashHex: safeTxHash
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`TPM signing failed: ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      return '0x' + result.signatureWithV; // Add 0x prefix
+    } catch (err) {
+      console.error('TPM signing error:', err);
+      throw new Error(`Failed to get TPM signature: ${err.message}`);
+    }
+  };
   const handleSignBoth = async () => {
     try {
       setError('');
@@ -148,11 +194,42 @@ export default function TxComposerSDK({ onNavigate = () => {} }) {
       setStatus('Getting signature from Owner 1...');
       const owner1Sig = await getOwner1Signature(txData.safeTxHash);
       sigs.push(owner1Sig);
-      setStatus('Getting signature from Owner 2...');
-      console.log(txData.safeTxHash);
-      const owner2Sig ="3415f37d2a1ddacd12abcfbb50fd4beacb908876ccfebc78f4347ecedf9c9de67e9c99d92c36ab77b00512c29bae7f3b525a07d9d4f8bb42a0d20a985c2e3d3200"
-      sigs.push(owner2Sig);
-      setSignatures(sigs);
+      // setStatus('Getting signature from Owner 2...');
+      // console.log(txData.safeTxHash);
+      // const owner2Sig = await getOwner2Signature(txData.safeTxHash);
+      // sigs.push(owner2Sig);
+      // setStatus('Getting signature from TPM...');
+      // const tpmSig = await getTPMSignature(txData.safeTxHash);
+      // console.log('TPM Signature:', tpmSig);
+      // sigs.push(tpmSig);
+      try {
+        const tpmSig = await getTPMSignature(txData.safeTxHash);
+        console.log('TPM Signature:', tpmSig);
+        sigs.push(tpmSig);
+        setStatus('✅ Using TPM signature');
+      } catch (tpmError) {
+        // console.warn('TPM signing failed, falling back to Owner 2:', tmpError.message);
+        setStatus('⚠️ TPM unavailable, getting signature from Owner 2...');
+        
+        const owner2Sig = await getOwner2Signature(txData.safeTxHash);
+        console.log('Owner 2 Signature (fallback):', owner2Sig);
+        sigs.push(owner2Sig);
+        setStatus('✅ Using Owner 2 signature (TPM fallback)');
+      }
+
+      // Sort signatures as shown above
+      const { ethers } = await import('ethers');
+      const sigPairs = [];
+      
+      for (let i = 0; i < sigs.length; i++) {
+        const signerAddress = ethers.utils.recoverAddress(txData.safeTxHash, sigs[i]);
+        sigPairs.push({ address: signerAddress, signature: sigs[i] });
+      }
+      
+      sigPairs.sort((a, b) => a.address.toLowerCase().localeCompare(b.address.toLowerCase()));
+      const sortedSignatures = sigPairs.map(pair => pair.signature);
+      
+      setSignatures(sortedSignatures);
       setStatus(`✅ Got ${sigs.length} signatures! Ready to execute.`);
     } catch (err) {
       setError(`Failed to sign: ${err.message}`);
@@ -254,6 +331,7 @@ Waiting for confirmation...`);
                 </ul>
               </details>
               <p><strong>Owner 2 Address:</strong> {getOwner2Address()}</p>
+              <p><strong>TPM Server Address:</strong> {serverKey || 'Loading...'}</p>
             </>
           )}
         </div>

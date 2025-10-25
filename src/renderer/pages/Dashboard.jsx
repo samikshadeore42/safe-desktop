@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { fetchSafeOverviewData, fetchRecentActivity, fetchTxLifecycleData } from "../services/hyperindex.service";
 import Modal from "../components/Modal";
 
-export default function Dashboard({ safeAddress="0x601778F8fa32298E826a8aBEf1E3b31515626845", chainId = 11155111 }) {
+export default function Dashboard({ safeAddress="0xEDD5612522e77fFF41cE8F8453429d9d6543ac33", chainId = 11155111 }) {
   const [stats, setStats] = useState(null);
   const [recentActivity, setRecentActivity] = useState([]);
   const [loading, setLoading] = useState(true);

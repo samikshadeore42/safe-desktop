@@ -6,7 +6,7 @@ networks:
   contracts:
   - name: Safe
     address:
-    - 0x601778F8fa32298E826a8aBEf1E3b31515626845
+    - 0x601778f8fa32298e826a8abef1e3b31515626845
     handler: ./src/EventHandlers.js
     events:
     - event: AddedOwner(address owner, address prevOwner, uint256 threshold)

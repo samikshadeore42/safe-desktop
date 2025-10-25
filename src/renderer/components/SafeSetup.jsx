@@ -22,6 +22,7 @@ export default function SafeSetup() {
   const [error, setError] = useState('');
   const [showComposer, setShowComposer] = useState(false);
   const [checkedBalance, setCheckedBalance] = useState(false);
+  const [fetchedServerKey, setFetchedServerKey] = useState(null);
 
   const saveKeyAndAddressToFile = (privateKey, safeAddress) => {
     try {
@@ -68,23 +69,47 @@ export default function SafeSetup() {
     }
   };
 
-  // Return a hardcoded server public key for testing
-  const handleGetServerPublicKey = () => {
+  // Fetch server public key from TPM endpoint with fallback
+  const handleGetServerPublicKey = async () => {
     try {
       setError('');
-      const hardcodedServerKey = "0xAB077537DbC54088b6c2Da1a838300Bb8152165E";  // This is a hardcoded key for testing
-      setServerPublicKey(hardcodedServerKey);
-      setStatus(`✅ Server public key: ${hardcodedServerKey}\nNote: This is currently a hardcoded key for testing`);
+      setStatus('Fetching server public key from TPM...');
+      
+      const response = await fetch('http://localhost:8080/address', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        // Add timeout to prevent hanging
+        signal: AbortSignal.timeout(5000) // 5 second timeout
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch server address: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      const serverAddress = data.address;
+      
+      setServerPublicKey(serverAddress);
+      setFetchedServerKey(serverAddress);
+      setStatus(`✅ Server public key fetched: ${serverAddress}\nNote: This key is managed by the TPM server`);
     } catch (err) {
-      setError(`Failed to get server public key: ${err.message}`);
-      setStatus('');
+      // console.warn('TPM server unavailable, using fallback address:', err.message);
+      
+      // Fallback to hardcoded address if TPM server is unavailable
+      const fallbackAddress = "0x70839DfD37Ab4812919FeF52B97c3CD0C41220c9";
+      
+      setServerPublicKey(fallbackAddress);
+      setFetchedServerKey(fallbackAddress);
+      setStatus(`⚠️ TPM server unavailable, using fallback address: ${fallbackAddress}\nNote: This is a fallback key for testing when TPM server is offline`);
+      setError(''); // Clear error since we have a fallback
     }
   };
 
   // Deploy Safe with 3 owners: 2 local (key1 + key2) and server (public key)
   const handleDeploySafe = async () => {
-    const hardcodedServerKey = "0xAB077537DbC54088b6c2Da1a838300Bb8152165E"; //only for testing
-    if (!keyPairs || !serverPublicKey) {
+    if (!keyPairs || !serverPublicKey || !fetchedServerKey) {
       setError('Please generate keys and get server public key first.');
       return;
     }
@@ -95,7 +120,7 @@ export default function SafeSetup() {
       const owners = [
         keyPairs.key1.address,
         keyPairs.key2.address,
-        hardcodedServerKey, //replace it with serverPublicKey now its only for testing
+        fetchedServerKey, // Use the dynamically fetched server key
       ];
       const threshold = 2;
 
@@ -173,7 +198,6 @@ export default function SafeSetup() {
         safeAddress={safeToUse}
         owner1Key={owner1KeyToUse}
         owner2Key={owner2KeyToUse}
-        serverKey={"0x8626f6940E2eb28930eFb4CeF49B2d1F2C9C1199"}
         onNavigate={(page) => {
           if (page === 'safe-setup') {
             setShowComposer(false);
