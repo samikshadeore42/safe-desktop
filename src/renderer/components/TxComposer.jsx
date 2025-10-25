@@ -38,18 +38,23 @@ export default function TxComposerSDK({ onNavigate = () => {} }) {
   const [balance, setBalance] = useState(null);
   const [serverKey, setServerKey] = useState(null);
 
-  // Fetch server address from TPM endpoint
+  // Fetch server address from TPM endpoint with fallback
   const fetchServerAddress = async () => {
     try {
-      const response = await fetch('http://localhost:8080/address');
+      const response = await fetch('http://localhost:8080/address', {
+        timeout: 5000 // 5 second timeout
+      });
       if (!response.ok) {
         throw new Error(`Failed to fetch server address: ${response.statusText}`);
       }
       const data = await response.json();
       setServerKey(data.address);
+      setStatus('✅ TPM server connected');
     } catch (err) {
-      console.error('Failed to fetch server address:', err);
-      setError(`Failed to fetch TPM server address: ${err.message}`);
+      console.warn('TPM server not available, will use fallback signing:', err.message);
+      // Set a placeholder - the actual signing will fall back to Owner 2
+      setServerKey('TPM_UNAVAILABLE');
+      setStatus('⚠️ TPM server offline - will use Owner 2 fallback for signing');
     }
   };
 
@@ -63,7 +68,7 @@ export default function TxComposerSDK({ onNavigate = () => {} }) {
     if (!safeAddress || !owner1Key || !owner2Key || !serverKey) {
       if (safeAddress && owner1Key && owner2Key && !serverKey) {
         setStatus('Fetching TPM server address...');
-      } else {
+      } else if (!safeAddress || !owner1Key || !owner2Key) {
         setError('Missing required keys or Safe address');
       }
       return;
@@ -72,7 +77,9 @@ export default function TxComposerSDK({ onNavigate = () => {} }) {
     // Set the keys and safe address in the service
     import('../services/safe-sdk.service.js').then(service => {
       try {
-        service.setKeys(owner1Key, owner2Key, serverKey);
+        // Only set server key if TPM is actually available
+        const actualServerKey = serverKey === 'TPM_UNAVAILABLE' ? null : serverKey;
+        service.setKeys(owner1Key, owner2Key, actualServerKey);
         service.setSafeAddress(safeAddress);
         loadSafeInfo();
       } catch (err) {
@@ -163,6 +170,11 @@ export default function TxComposerSDK({ onNavigate = () => {} }) {
     }
   };
   const getTPMSignature = async (safeTxHash) => {
+    // Check if TPM server is available
+    if (serverKey === 'TPM_UNAVAILABLE') {
+      throw new Error('TPM server is not available');
+    }
+    
     try {
       const response = await fetch('http://localhost:8080/sign', {
         method: 'POST',
@@ -171,7 +183,8 @@ export default function TxComposerSDK({ onNavigate = () => {} }) {
         },
         body: JSON.stringify({
           txHashHex: safeTxHash
-        })
+        }),
+        timeout: 10000 // 10 second timeout
       });
       
       if (!response.ok) {
