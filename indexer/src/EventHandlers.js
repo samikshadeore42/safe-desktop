@@ -132,7 +132,7 @@ Safe.SafeMultiSigTransaction.handler(async ({event, context}) => {
     console.error("[SafeMultiSigTransaction] Missing event.srcAddress", event);
     return;
   }
-  const txHash = event.txHash || event.transactionHash || event.transaction?.hash || "";
+  const txHash = event.params.txHash || "";
   const entity = {
     id: `${event.chainId}_${event.block.number}_${event.logIndex}`,
     to: event.params.to,
@@ -156,15 +156,15 @@ Safe.SafeMultiSigTransaction.handler(async ({event, context}) => {
 
 
 // Safe.SafeMultiSigTransaction.handler(async ({event, context}) => {
-//   console.log("=== DEBUG SafeMultiSigTransaction ===");
-//   console.log("event keys:", Object.keys(event));
-//   console.log("event.transaction:", event.transaction);
-//   console.log("event.transactionHash:", event.transactionHash);
-//   console.log("event.log:", event.log);
-//   console.log("=====================================");
-  
-//   const txHash = event.transaction?.hash || event.transactionHash || event.log?.transactionHash || "";
-  
+//   let safeAddress = "";
+//   if (event.srcAddress && typeof event.srcAddress === "string") {
+//     safeAddress = event.srcAddress.toLowerCase();
+//   } else {
+//     // Log and skip or handle gracefully
+//     console.error("[SafeMultiSigTransaction] Missing event.srcAddress", event);
+//     return;
+//   }
+//   const txHash = event.txHash || event.transactionHash || event.transaction?.hash || "";
 //   const entity = {
 //     id: `${event.chainId}_${event.block.number}_${event.logIndex}`,
 //     txHash,
@@ -180,7 +180,8 @@ Safe.SafeMultiSigTransaction.handler(async ({event, context}) => {
 //     signatures: event.params.signatures,
 //     additionalInfo: event.params.additionalInfo,
 //     timestamp: event.block.timestamp,
-//     safeAddress: event.address.toLowerCase(),
+//     safeAddress, // now is always a string, or handler exits
+//     txHash,
 //   };
 
 //   context.Safe_SafeMultiSigTransaction.set(entity);
