@@ -31,7 +31,7 @@ This will:
 2. Install dependencies if needed (asks for password)
 3. Build binaries if needed
 4. Generate keys and seal to TPM (first time only)
-5. Start the server on port 8081
+5. Start the server on port 8080
 
 ### Option 2: Manual Control
 ```bash
@@ -45,7 +45,7 @@ This will:
 ./setup-and-run.sh --setup
 
 # Start server
-./setup-and-run.sh --start --port 8081
+./setup-and-run.sh --start --port 8080
 
 # Check status
 ./setup-and-run.sh --status
@@ -90,11 +90,11 @@ This will:
 3. **Use the API** from your renderer process:
    ```javascript
    // Get Ethereum address
-   const addressResponse = await fetch('http://localhost:8081/address');
+   const addressResponse = await fetch('http://localhost:8080/address');
    const { address } = await addressResponse.json();
    
    // Sign transaction
-   const signResponse = await fetch('http://localhost:8081/sign', {
+   const signResponse = await fetch('http://localhost:8080/sign', {
      method: 'POST',
      headers: { 'Content-Type': 'application/json' },
      body: JSON.stringify({ 
@@ -262,7 +262,7 @@ app.on('before-quit', () => {
 // renderer.js
 async function signTransaction(txHash) {
   try {
-    const response = await fetch('http://localhost:8081/sign', {
+    const response = await fetch('http://localhost:8080/sign', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ txHashHex: txHash })

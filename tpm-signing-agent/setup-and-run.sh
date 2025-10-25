@@ -6,7 +6,7 @@
 set -e  # Exit on any error
 
 # Configuration
-DEFAULT_PORT="8081"
+DEFAULT_PORT="8080"
 KEY_DIR="./keys"
 SERVER_BINARY="./tpm-signing-server"
 KEY_GENERATOR_BINARY="./key-generator"

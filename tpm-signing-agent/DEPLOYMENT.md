@@ -83,7 +83,7 @@ app.on('before-quit', () => {
 ```javascript
 // renderer.js
 class TPMSigner {
-  constructor(baseUrl = 'http://localhost:8081') {
+  constructor(baseUrl = 'http://localhost:8080') {
     this.baseUrl = baseUrl;
   }
   

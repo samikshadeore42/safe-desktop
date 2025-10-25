@@ -6,7 +6,7 @@
 
 const http = require('http');
 
-const SERVER_URL = 'http://localhost:8081';
+const SERVER_URL = 'http://localhost:8080';
 
 async function makeRequest(method, path, data) {
     return new Promise((resolve, reject) => {

@@ -25,10 +25,10 @@ This server provides Ethereum-compatible signing using secp256k1 private keys th
 go build -o unseal-server main.go
 
 # Run with cached key (recommended for performance)
-sudo ./unseal-server -tmp-handle 0x81010002 -port 8081 -cache=true
+sudo ./unseal-server -tmp-handle 0x81010002 -port 8080 -cache=true
 
 # Run with per-request unsealing (more secure but slower)
-sudo ./unseal-server -tpm-handle 0x81010002 -port 8081 -cache=false
+sudo ./unseal-server -tpm-handle 0x81010002 -port 8080 -cache=false
 ```
 
 ### Command Line Options
@@ -43,7 +43,7 @@ sudo ./unseal-server -tpm-handle 0x81010002 -port 8081 -cache=false
 Returns the Ethereum address derived from the sealed private key.
 
 ```bash
-curl http://localhost:8081/address
+curl http://localhost:8080/address
 ```
 
 Response:
@@ -57,7 +57,7 @@ Response:
 Signs a 32-byte transaction hash (or any 32-byte digest).
 
 ```bash
-curl -X POST http://localhost:8081/sign \
+curl -X POST http://localhost:8080/sign \
   -H "Content-Type: application/json" \
   -d '{"txHashHex":"0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"}'
 ```

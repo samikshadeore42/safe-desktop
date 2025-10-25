@@ -41,8 +41,8 @@ fi
 echo
 echo "🎉 TPM Signing Agent is now running!"
 echo "    Your Electron app can now make requests to:"
-echo "    • http://localhost:8081/address"
-echo "    • http://localhost:8081/sign"
+echo "    • http://localhost:8080/address"
+echo "    • http://localhost:8080/sign"
 echo
 echo "📖 To stop the server: ./setup-and-run.sh --stop"
 echo "📖 To check status:    ./setup-and-run.sh --status"
