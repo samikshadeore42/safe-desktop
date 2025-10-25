@@ -3,45 +3,61 @@ type Safe_AddedOwner {
   owner: String!
   prevOwner: String!
   threshold: BigInt!
+  safeAddress: String! 
+  timestamp: BigInt!
 }
 
 type Safe_ApproveHash {
   id: ID!
   msgHash: String!
   payment: BigInt!
+  safeAddress: String! 
+  timestamp: BigInt!
 }
 
 type Safe_ChangedThreshold {
   id: ID!
   threshold: BigInt!
+  safeAddress: String!
+  timestamp: BigInt!
 }
 
 type Safe_DisabledModule {
   id: ID!
   moduleAddress: String!
+  safeAddress: String!
+  timestamp: BigInt!
 }
 
 type Safe_EnabledModule {
   id: ID!
   moduleAddress: String!
+  safeAddress: String!
+  timestamp: BigInt!
 }
 
 type Safe_ExecutionFailure {
   id: ID!
   txHash: String!
   payment: BigInt!
+  timestamp: BigInt!
+  safeAddress: String!
 }
 
 type Safe_ExecutionSuccess {
   id: ID!
   txHash: String!
   payment: BigInt!
+  timestamp: BigInt!
+  safeAddress: String!
 }
 
 type Safe_FallbackHandlerChanged {
   id: ID!
   oldFallbackHandler: String!
   newFallbackHandler: String!
+  safeAddress: String!
+  timestamp: BigInt!
 }
 
 type Safe_RemovedOwner {
@@ -49,6 +65,8 @@ type Safe_RemovedOwner {
   owner: String!
   prevOwner: String!
   threshold: BigInt!
+  safeAddress: String!
+  timestamp: BigInt!
 }
 
 type Safe_SafeMultiSigTransaction {
@@ -64,5 +82,8 @@ type Safe_SafeMultiSigTransaction {
   refundReceiver: String!
   signatures: String!
   additionalInfo: String!
+  safeAddress: String! 
+  timestamp: BigInt!
+  txHash: String!
 }
 
