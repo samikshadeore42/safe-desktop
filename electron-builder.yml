@@ -1,0 +1,49 @@
+appId: com.safe.desktop
+productName: Safe Desktop
+directories:
+  output: release
+  buildResources: assets
+asar: true
+asarUnpack:
+  - preload.cjs
+files:
+  - dist/**/*
+  - electron.cjs
+  - preload.cjs
+  - package.json
+  - node_modules/**/*
+extraResources:
+  - from: tpm-signing-agent
+    to: tpm-signing-agent
+    filter:
+      - "tpm-signing-server"
+      - "key-generator"
+      - "setup-and-run.sh"
+      - "start-tmp-server.sh"
+      - "start-tpm-server.bat" 
+      - "README.md"
+      - "DEPLOYMENT.md"
+      - "create_key/**/*"
+      - "unseal_server/**/*"
+linux:
+  target:
+    - target: AppImage
+      arch: x64
+    - target: deb
+      arch: x64
+    - target: rpm
+      arch: x64
+  category: Utility
+win:
+  target:
+    - target: nsis
+      arch: x64
+mac:
+  target:
+    - target: dmg
+      arch: x64
+    - target: dmg
+      arch: arm64
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true

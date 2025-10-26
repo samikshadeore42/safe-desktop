@@ -2,6 +2,11 @@
 {
   "name": "safe-desktop",
   "version": "1.0.0",
+  "description": "Desktop application for Safe multi-signature wallet management",
+  "author": {
+    "name": "Safe Desktop",
+    "email": "aarav05mehta@gmail.com"
+  },
   "private": true,
   "type": "module",
   "scripts": {
