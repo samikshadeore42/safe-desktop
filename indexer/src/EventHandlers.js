@@ -13,6 +13,7 @@ SafeDeploymentFactory.SafeDeployed.contractRegister(({ event, context }) => {
  context.log.info(
    `[Dynamic Registration] Registered new Safe at ${safeAddress} from block ${event.block.number}`
 );
+  console.log(`[Dynamic Registration] Registered new Safe at ${safeAddress} from block ${event.block.number}`)
 });
 
 Safe.AddedOwner.handler(async ({event, context}) => {

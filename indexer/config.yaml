@@ -6,7 +6,7 @@ networks:
   contracts:
   - name: SafeDeploymentFactory
     address:
-    - 0x5FbDB2315678afecb367f032d93F642f64180aa3
+    - 0xd673f4d06b43a776fe6284f3473053d519ed620c
     abi_file_path: ./abis/SafeDeploymentFactory.json
     handler: ./src/EventHandlers.js
     events:
