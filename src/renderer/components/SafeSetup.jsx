@@ -12,6 +12,7 @@ const CHAIN_ID = BigInt(import.meta.env.VITE_CHAIN_ID || 11155111);
 const SERVER_URL = 'http://localhost:3000';
 
 const PREDEFINED_SAFE = import.meta.env.VITE_SAFE_ADDRESS;
+const HIDDEN_TEXT = '••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••';
 
 export default function SafeSetup() {
   const { 
@@ -26,6 +27,12 @@ export default function SafeSetup() {
   const [showComposer, setShowComposer] = useState(false);
   const [checkedBalance, setCheckedBalance] = useState(false);
   const [fetchedServerKey, setFetchedServerKey] = useState(null);
+
+  // --- NEW: State for showing/hiding keys ---
+  const [showKey1Pk, setShowKey1Pk] = useState(false);
+  const [showKey1Mn, setShowKey1Mn] = useState(false);
+  const [showKey2Pk, setShowKey2Pk] = useState(false);
+  const [showKey2Mn, setShowKey2Mn] = useState(false);
 
   const saveKeyAndAddressToFile = (privateKey, safeAddress) => {
     try {
@@ -64,6 +71,12 @@ export default function SafeSetup() {
         },
       });
 
+      // --- NEW: Reset visibility on generation ---
+      setShowKey1Pk(false);
+      setShowKey1Mn(false);
+      setShowKey2Pk(false);
+      setShowKey2Mn(false);
+
       setStatus('✅ Generated two keypairs. Please SAVE the private key of Key 1 securely!');
       setError('');
     } catch (err) {
@@ -83,7 +96,6 @@ export default function SafeSetup() {
         headers: {
           'Content-Type': 'application/json',
         },
-        // Add timeout to prevent hanging
         signal: AbortSignal.timeout(5000) // 5 second timeout
       });
       
@@ -98,9 +110,6 @@ export default function SafeSetup() {
       setFetchedServerKey(serverAddress);
       setStatus(`✅ Server public key fetched: ${serverAddress}\nNote: This key is managed by the TPM server`);
     } catch (err) {
-      // console.warn('TPM server unavailable, using fallback address:', err.message);
-      
-      // Fallback to hardcoded address if TPM server is unavailable
       const fallbackAddress = "0x70839DfD37Ab4812919FeF52B97c3CD0C41220c9";
       
       setServerPublicKey(fallbackAddress);
@@ -139,14 +148,8 @@ export default function SafeSetup() {
       });
 
       const predictedAddress = await protocolKit.getAddress();
-      
-      // Create a wallet from the private key for deployment
       const wallet = new ethers.Wallet(keyPairs.key1.privateKey, new ethers.providers.JsonRpcProvider(RPC_URL));
-      
-      // Create and send the deployment transaction
       const deploymentTx = await protocolKit.createSafeDeploymentTransaction();
-      
-      // Check wallet balance
       const balance = await wallet.getBalance();
       console.log('Wallet balance:', ethers.utils.formatEther(balance), 'ETH');
       
@@ -159,23 +162,56 @@ export default function SafeSetup() {
         throw new Error(`Account ${wallet.address} has no ETH. Please fund this address with some Sepolia ETH first.\n\nYou can get test ETH from these faucets:\n${faucetLinks}`);
       }
 
-      // Set manual gas limit and higher gas price for Sepolia
       const txResponse = await wallet.sendTransaction({
         to: deploymentTx.to,
         data: deploymentTx.data,
         value: deploymentTx.value || '0',
-        gasLimit: 1000000, // Manual gas limit
-        maxFeePerGas: ethers.utils.parseUnits('20', 'gwei'), // Higher gas price
+        gasLimit: 1000000, 
+        maxFeePerGas: ethers.utils.parseUnits('20', 'gwei'), 
         maxPriorityFeePerGas: ethers.utils.parseUnits('2', 'gwei'),
-        type: 2 // EIP-1559 transaction
+        type: 2 
       });
       
       setStatus('⏳ Waiting for deployment transaction to be mined...');
       await txResponse.wait();
 
+
+      // --- Auto-fund the Safe with all available ETH minus dynamically estimated gas cost (fixed logic) ---
+      setStatus('⏳ Funding Safe with all available ETH (minus estimated gas cost)...');
+      try {
+        // Re-fetch balance after deployment (since deployment cost gas)
+        const postDeployBalance = await wallet.getBalance();
+        const provider = wallet.provider;
+        const gasPrice = await provider.getGasPrice();
+        // Step 1: Estimate gas with value = 0
+        const gasLimit = await provider.estimateGas({
+          to: predictedAddress,
+          from: wallet.address,
+          value: 0
+        });
+        // Step 2: Calculate max sendable value with safety buffer
+        const gasCost = gasLimit.mul(gasPrice);
+        const safetyBuffer = ethers.utils.parseEther('0.0001'); // 0.0001 ETH buffer
+        let fundAmount = postDeployBalance.sub(gasCost).sub(safetyBuffer);
+        if (fundAmount.lte(0)) {
+          setStatus(`✅ Safe deployed at: ${predictedAddress} (⚠️ Not enough ETH left to fund Safe after gas and buffer)`);
+        } else {
+          // Step 3: Send max value with estimated gas and buffer
+          const fundTx = await wallet.sendTransaction({
+            to: predictedAddress,
+            value: fundAmount,
+            gasLimit,
+            gasPrice
+          });
+          await fundTx.wait();
+          setStatus(`✅ Safe deployed and maximally funded at: ${predictedAddress}`);
+        }
+      } catch (fundErr) {
+        setStatus(`✅ Safe deployed at: ${predictedAddress} (⚠️ Auto-funding failed: ${fundErr.message})`);
+      }
+
       const newSafeInfo = { address: predictedAddress, privateKey: keyPairs.key1.privateKey };
       setSafeInfo(newSafeInfo);
-      setStatus(`✅ Safe deployed at: ${predictedAddress}`);
       setError('');
 
       saveKeyAndAddressToFile(keyPairs.key1.privateKey, predictedAddress);
@@ -187,7 +223,6 @@ export default function SafeSetup() {
 
   if (showComposer && (safeInfo || (usePredefinedSafe && PREDEFINED_SAFE))) {
     const safeToUse = usePredefinedSafe ? PREDEFINED_SAFE : safeInfo.address;
-    // Use generated keys if available, otherwise empty strings
     const owner1KeyToUse = keyPairs?.key1?.privateKey || '';
     const owner2KeyToUse = keyPairs?.key2?.privateKey || '';
     return (
@@ -255,7 +290,6 @@ Your address to fund: ${keyPairs.key1.address}
     <div className={styles.container}>
       <h1 className={styles.title}>Safe 2-of-3 Multisig Setup</h1>
 
-      {/* Status messages are now at the top for better visibility */}
       {status && <div className={styles.status}>{status}</div>}
       {error && <div className={styles.error}>{error}</div>}
 
@@ -291,27 +325,63 @@ Your address to fund: ${keyPairs.key1.address}
             <div className={`${styles.infoBox} ${styles.warning}`}>
               <h3>Key 1 (Save privately!)</h3>
               <div className={styles.keyItem}>
-                <label>Address</label>
+                <div className={styles.keyHeader}>
+                  <label>Address</label>
+                  {/* No show/hide for public address */}
+                </div>
                 <code className={styles.code}>{keyPairs.key1.address}</code>
               </div>
               <div className={styles.keyItem}>
-                <label>Private Key</label>
-                <code className={styles.code}>{keyPairs.key1.privateKey}</code>
+                <div className={styles.keyHeader}>
+                  <label>Private Key</label>
+                  <button className={styles.showButton} onClick={() => setShowKey1Pk(!showKey1Pk)}>
+                    {showKey1Pk ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+                <code className={`${styles.code} ${!showKey1Pk ? styles.hiddenValue : ''}`}>
+                  {showKey1Pk ? keyPairs.key1.privateKey : HIDDEN_TEXT}
+                </code>
               </div>
               <div className={styles.keyItem}>
-                <label>Mnemonic</label>
-                <code className={styles.code}>{keyPairs.key1.mnemonic}</code>
+                <div className={styles.keyHeader}>
+                  <label>Mnemonic</label>
+                  <button className={styles.showButton} onClick={() => setShowKey1Mn(!showKey1Mn)}>
+                    {showKey1Mn ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+                <code className={`${styles.code} ${!showKey1Mn ? styles.hiddenValue : ''}`}>
+                  {showKey1Mn ? keyPairs.key1.mnemonic : HIDDEN_TEXT}
+                </code>
               </div>
 
               <h3>Key 2 (For App Use)</h3>
               <div className={styles.keyItem}>
-                <label>Address</label>
+                <div className={styles.keyHeader}>
+                  <label>Address</label>
+                </div>
                 <code className={styles.code}>{keyPairs.key2.address}</code>
               </div>
               <div className={styles.keyItem}>
-                <label>Private Key</label>
-                <code className={`${styles.code} ${styles.obscured}`}>
-                  {keyPairs.key2.privateKey}
+                <div className={styles.keyHeader}>
+                  <label>Private Key</label>
+                  <button className={styles.showButton} onClick={() => setShowKey2Pk(!showKey2Pk)}>
+                    {showKey2Pk ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+                <code className={`${styles.code} ${!showKey2Pk ? styles.hiddenValue : ''}`}>
+                  {showKey2Pk ? keyPairs.key2.privateKey : HIDDEN_TEXT}
+                </code>
+              </div>
+              {/* --- NEW: Mnemonic for Key 2 --- */}
+              <div className={styles.keyItem}>
+                <div className={styles.keyHeader}>
+                  <label>Mnemonic</label>
+                  <button className={styles.showButton} onClick={() => setShowKey2Mn(!showKey2Mn)}>
+                    {showKey2Mn ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+                <code className={`${styles.code} ${!showKey2Mn ? styles.hiddenValue : ''}`}>
+                  {showKey2Mn ? keyPairs.key2.mnemonic : HIDDEN_TEXT}
                 </code>
               </div>
             </div>

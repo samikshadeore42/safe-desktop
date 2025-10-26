@@ -48,10 +48,24 @@
 /* --- Result Card --- */
 .keyInfo {
   background: #fff;
-  border: 1px solid;
+  border: 1px solid #e0e0e0;
   border-radius: 12px;
   box-shadow: 0 4px 16px rgba(60, 60, 120, 0.07);
   padding: 16px 24px;
+}
+
+/* --- Styling for Key 1 / Key 2 headers --- */
+.keyInfo h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #222b45;
+  margin-top: 16px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #e0e0e0;
+  padding-bottom: 8px;
+}
+.keyInfo h3:first-of-type {
+  margin-top: 0;
 }
 
 /* --- Key Field (New Structure) --- */
@@ -98,6 +112,7 @@
   color: #2e7d32;
   background: #e8f5e9;
   border-color: #a5d6a7;
+  cursor: not-allowed;
 }
 
 .keyValue {
@@ -111,13 +126,16 @@
   overflow-wrap: break-word;
   word-break: break-all;
   color: #333;
-  transition: filter 0.2s ease-out;
 }
-.obscured {
-  color: #f8f9fa;
-  filter: blur(4px);
-  user-select: none;
+
+/* --- NEW: Style for hidden text --- */
+.hiddenValue {
+  color: #757575;
+  font-family: 'Inter', sans-serif;
+  font-size: 1.25rem; /* Make the dots a bit bigger */
+  letter-spacing: 2px;
 }
+
 
 /* --- Warning & Error Boxes --- */
 .warningBox {
