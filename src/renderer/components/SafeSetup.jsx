@@ -14,7 +14,7 @@ const SERVER_URL = 'http://localhost:3000';
 const PREDEFINED_SAFE = import.meta.env.VITE_SAFE_ADDRESS;
 const HIDDEN_TEXT = '••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••';
 
-export default function SafeSetup() {
+export default function SafeSetup({ onNavigate }) {
   const { 
     keyPairs, setKeyPairs,
     safeInfo, setSafeInfo,
@@ -135,8 +135,6 @@ export default function SafeSetup() {
       ];
       const threshold = 2;
 
-      console.log('Deploying with owners:', owners);
-
       const signer = keyPairs.key1.privateKey;
       const protocolKit = await Safe.init({
         provider: RPC_URL,
@@ -151,8 +149,6 @@ export default function SafeSetup() {
       const wallet = new ethers.Wallet(keyPairs.key1.privateKey, new ethers.providers.JsonRpcProvider(RPC_URL));
       const deploymentTx = await protocolKit.createSafeDeploymentTransaction();
       const balance = await wallet.getBalance();
-      console.log('Wallet balance:', ethers.utils.formatEther(balance), 'ETH');
-      
       if (balance.isZero()) {
         const faucetLinks = `
           • Alchemy Sepolia Faucet: https://sepoliafaucet.com/
@@ -171,50 +167,52 @@ export default function SafeSetup() {
         maxPriorityFeePerGas: ethers.utils.parseUnits('2', 'gwei'),
         type: 2 
       });
-      
+
       setStatus('⏳ Waiting for deployment transaction to be mined...');
       await txResponse.wait();
 
-
-      // --- Auto-fund the Safe with all available ETH minus dynamically estimated gas cost (fixed logic) ---
-      setStatus('⏳ Funding Safe with all available ETH (minus estimated gas cost)...');
-      try {
-        // Re-fetch balance after deployment (since deployment cost gas)
-        const postDeployBalance = await wallet.getBalance();
-        const provider = wallet.provider;
-        const gasPrice = await provider.getGasPrice();
-        // Step 1: Estimate gas with value = 0
-        const gasLimit = await provider.estimateGas({
-          to: predictedAddress,
-          from: wallet.address,
-          value: 0
-        });
-        // Step 2: Calculate max sendable value with safety buffer
-        const gasCost = gasLimit.mul(gasPrice);
-        const safetyBuffer = ethers.utils.parseEther('0.0001'); // 0.0001 ETH buffer
-        let fundAmount = postDeployBalance.sub(gasCost).sub(safetyBuffer);
-        if (fundAmount.lte(0)) {
-          setStatus(`✅ Safe deployed at: ${predictedAddress} (⚠️ Not enough ETH left to fund Safe after gas and buffer)`);
-        } else {
-          // Step 3: Send max value with estimated gas and buffer
-          const fundTx = await wallet.sendTransaction({
-            to: predictedAddress,
-            value: fundAmount,
-            gasLimit,
-            gasPrice
-          });
-          await fundTx.wait();
-          setStatus(`✅ Safe deployed and maximally funded at: ${predictedAddress}`);
-        }
-      } catch (fundErr) {
-        setStatus(`✅ Safe deployed at: ${predictedAddress} (⚠️ Auto-funding failed: ${fundErr.message})`);
-      }
-
+      // Immediately set Safe info and show composer, and start funding in background
       const newSafeInfo = { address: predictedAddress, privateKey: keyPairs.key1.privateKey };
       setSafeInfo(newSafeInfo);
+      setStatus('✅ Safe deployed! Funding Safe in background...');
+      setShowComposer(true);
       setError('');
-
       saveKeyAndAddressToFile(keyPairs.key1.privateKey, predictedAddress);
+
+      // --- Auto-fund the Safe in the background ---
+      (async () => {
+        try {
+          // Re-fetch balance after deployment (since deployment cost gas)
+          const postDeployBalance = await wallet.getBalance();
+          const provider = wallet.provider;
+          const gasPrice = await provider.getGasPrice();
+          // Step 1: Estimate gas with value = 0
+          const gasLimit = await provider.estimateGas({
+            to: predictedAddress,
+            from: wallet.address,
+            value: 0
+          });
+          // Step 2: Calculate max sendable value with safety buffer
+          const gasCost = gasLimit.mul(gasPrice);
+          const safetyBuffer = ethers.utils.parseEther('0.0001'); // 0.0001 ETH buffer
+          let fundAmount = postDeployBalance.sub(gasCost).sub(safetyBuffer);
+          if (fundAmount.lte(0)) {
+            setStatus(`✅ Safe deployed at: ${predictedAddress} (⚠️ Not enough ETH left to fund Safe after gas and buffer)`);
+          } else {
+            // Step 3: Send max value with estimated gas and buffer
+            const fundTx = await wallet.sendTransaction({
+              to: predictedAddress,
+              value: fundAmount,
+              gasLimit,
+              gasPrice
+            });
+            await fundTx.wait();
+            setStatus(`✅ Safe deployed and maximally funded at: ${predictedAddress}`);
+          }
+        } catch (fundErr) {
+          setStatus(`✅ Safe deployed at: ${predictedAddress} (⚠️ Auto-funding failed: ${fundErr.message})`);
+        }
+      })();
     } catch (err) {
       setError(`❌ ${err.message}`);
       setStatus('');
@@ -233,6 +231,9 @@ export default function SafeSetup() {
         onNavigate={(page) => {
           if (page === 'safe-setup') {
             setShowComposer(false);
+            if (onNavigate) onNavigate('safe-setup');
+          } else if (onNavigate) {
+            onNavigate(page);
           }
         }}
       />
@@ -290,9 +291,7 @@ Your address to fund: ${keyPairs.key1.address}
     <div className={styles.container}>
       <h1 className={styles.title}>Safe 2-of-3 Multisig Setup</h1>
 
-      {status && <div className={styles.status}>{status}</div>}
-      {error && <div className={styles.error}>{error}</div>}
-
+      {/* Quick Start Option remains at the top if needed */}
       {!usePredefinedSafe && !safeInfo && PREDEFINED_SAFE && (
         <div className={styles.section}>
           <h2 className={styles.sectionTitle}>
@@ -312,6 +311,7 @@ Your address to fund: ${keyPairs.key1.address}
         </div>
       )}
 
+      {/* Section 1: Key Generation status/error */}
       <div className={styles.section}>
         <h2 className={styles.sectionTitle}>
           <span className={styles.stepNumber}>1</span>
@@ -320,6 +320,12 @@ Your address to fund: ${keyPairs.key1.address}
         <button className={`${styles.button} ${styles.btnGreen}`} onClick={handleGenerateTwoKeys}>
           Generate Keys
         </button>
+        {status && status.includes('keypair') && (
+          <div className={styles.sectionStatus}>{status}</div>
+        )}
+        {error && error.toLowerCase().includes('key pair') && (
+          <div className={styles.sectionError}>{error}</div>
+        )}
         {keyPairs && (
           <>
             <div className={`${styles.infoBox} ${styles.warning}`}>
@@ -385,7 +391,6 @@ Your address to fund: ${keyPairs.key1.address}
                 </code>
               </div>
             </div>
-            
             {!usePredefinedSafe && (
               <div className={`${styles.infoBox} ${styles.info}`}>
                 <h3>Get Sepolia Test ETH</h3>
@@ -398,12 +403,19 @@ Your address to fund: ${keyPairs.key1.address}
                     Check Balance
                   </button>
                 </div>
+                {status && status.toLowerCase().includes('balance') && (
+                  <div className={styles.sectionStatus}>{status}</div>
+                )}
+                {error && error.toLowerCase().includes('balance') && (
+                  <div className={styles.sectionError}>{error}</div>
+                )}
               </div>
             )}
           </>
         )}
       </div>
 
+      {/* Section 2: Server Key status/error */}
       <div className={styles.section}>
         <h2 className={styles.sectionTitle}>
           <span className={styles.stepNumber}>2</span>
@@ -413,6 +425,12 @@ Your address to fund: ${keyPairs.key1.address}
         <button className={`${styles.button} ${styles.btnGreen}`} onClick={handleGetServerPublicKey}>
           Request Server Key
         </button>
+        {status && (status.toLowerCase().includes('server public key') || status.toLowerCase().includes('tpm server')) && (
+          <div className={styles.sectionStatus}>{status}</div>
+        )}
+        {error && error.toLowerCase().includes('server') && (
+          <div className={styles.sectionError}>{error}</div>
+        )}
         {serverPublicKey && (
           <div className={`${styles.infoBox} ${styles.success}`}>
             <p><strong>Server Public Key:</strong></p>
@@ -422,6 +440,7 @@ Your address to fund: ${keyPairs.key1.address}
         )}
       </div>
 
+      {/* Section 3: Deploy Safe status/error */}
       <div className={styles.section}>
         <h2 className={styles.sectionTitle}>
           <span className={styles.stepNumber}>3</span>
@@ -434,8 +453,15 @@ Your address to fund: ${keyPairs.key1.address}
         >
           Deploy Safe
         </button>
+        {status && (status.toLowerCase().includes('deploying') || status.toLowerCase().includes('waiting for deployment') || status.toLowerCase().includes('funding safe') || status.toLowerCase().includes('deployed')) && (
+          <div className={styles.sectionStatus}>{status}</div>
+        )}
+        {error && error.toLowerCase().includes('deploy') && (
+          <div className={styles.sectionError}>{error}</div>
+        )}
       </div>
 
+      {/* Next Steps section remains unchanged */}
       {safeInfo && (
         <div className={styles.section}>
           <h2 className={styles.sectionTitle}>

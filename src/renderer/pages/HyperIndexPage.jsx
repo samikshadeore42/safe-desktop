@@ -160,9 +160,6 @@ export default function HyperIndexPage({ safeAddress, chainId = 11155111 }) {
             <div key={r.id} className={`${styles.card} ${styles.multisig}`}>
               <div className={styles.cardHeader}>
                 <span className={styles.cardTitle}>New Multisig Tx</span>
-                <span className={styles.cardTimestamp}>
-                  {formatTimestamp(r.timestamp)}
-                </span>
               </div>
               <div className={styles.cardBody}>
                 <div className={styles.cardRow}>

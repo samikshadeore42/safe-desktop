@@ -199,6 +199,31 @@
 }
 
 /* --- Status & Error Messages --- */
+
+/* Section-specific status/error messages */
+.sectionStatus, .sectionError {
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-top: 10px;
+  margin-bottom: 0;
+  font-weight: 500;
+  font-size: 0.97rem;
+  white-space: pre-wrap;
+  line-height: 1.6;
+  display: block;
+}
+.sectionStatus {
+  background: #e7f3ff;
+  color: #0056b3;
+  border: 1px solid #b3d4ff;
+}
+.sectionError {
+  background: #ffebee;
+  color: #c62828;
+  border: 1px solid #ef9a9a;
+}
+
+/* Allow .status and .error for legacy, but prefer sectionStatus/sectionError for per-section */
 .status, .error {
   padding: 14px 18px;
   border-radius: 8px;
