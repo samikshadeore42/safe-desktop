@@ -549,8 +549,9 @@ function formatRelativeTime(timestamp) {
 
 function formatExactTime(timestamp) {
   if (!timestamp) return "-";
-  // Timestamp is already in milliseconds from getTimestamp()
-  const date = new Date(Number(timestamp));
+  let ms = Number(timestamp);
+  if (ms < 1000000000000) ms = ms * 1000; // Convert seconds to ms if needed
+  const date = new Date(ms);
   return date.toLocaleString('en-US', {
     month: 'short', day: 'numeric', year: 'numeric',
     hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true

@@ -40,8 +40,12 @@ export default function TxComposerSDK({ onNavigate = () => {} }) {
   });
   const [txData, setTxData] = useState(null);
   const [signatures, setSignatures] = useState([]);
-  const [status, setStatus] = useState('');
-  const [error, setError] = useState('');
+  const [createStatus, setCreateStatus] = useState('');
+  const [createError, setCreateError] = useState('');
+  const [signStatus, setSignStatus] = useState('');
+  const [signError, setSignError] = useState('');
+  const [executeStatus, setExecuteStatus] = useState('');
+  const [executeError, setExecuteError] = useState('');
   const [balance, setBalance] = useState(null);
   const [loading, setLoading] = useState(false);
   const [serverKey, setServerKey] = useState(null);
@@ -57,12 +61,12 @@ export default function TxComposerSDK({ onNavigate = () => {} }) {
       }
       const data = await response.json();
       setServerKey(data.address);
-      setStatus('✅ TPM server connected');
+  // TPM status is not section-specific, so just ignore for now
     } catch (err) {
       console.warn('TPM server not available, will use fallback signing:', err.message);
       // Set a placeholder - the actual signing will fall back to Owner 2
       setServerKey('TPM_UNAVAILABLE');
-      setStatus('⚠️ TPM server offline - will use Owner 2 fallback for signing');
+  // TPM status is not section-specific, so just ignore for now
     }
   };
 
@@ -74,9 +78,15 @@ export default function TxComposerSDK({ onNavigate = () => {} }) {
   useEffect(() => {
     if (!safeAddress || !owner1Key || !owner2Key || !serverKey) {
       if (safeAddress && owner1Key && owner2Key && !serverKey) {
-        setStatus('Fetching TPM server address...');
+        setCreateStatus('Fetching TPM server address...');
+        // Set a timeout to show fallback if not resolved in 2 seconds
+        setTimeout(() => {
+          if (!serverKey) {
+            setCreateStatus('⚠️ TPM server unavailable, using fallback address: 0x70839DfD37Ab4812919FeF52B97c3CD0C41220c9');
+          }
+        }, 5000);
       } else if (!safeAddress || !owner1Key || !owner2Key) {
-        setError('Missing required keys or Safe address');
+        setCreateError('Missing required keys or Safe address');
       }
       return;
     }
@@ -116,15 +126,17 @@ export default function TxComposerSDK({ onNavigate = () => {} }) {
 
   const handleCreate = async () => {
     setLoading(true);
+    setCreateError('');
+    setCreateStatus('Creating transaction...');
+    setSignatures([]);
+    setSignStatus('');
+    setSignError('');
+    setExecuteStatus('');
+    setExecuteError('');
     try {
-      setError('');
-      setStatus('Creating transaction...');
-      setSignatures([]);
-
       if (!formData.value || formData.value === "0" || parseFloat(formData.value) === 0) {
         throw new Error("Cannot send 0 ETH. Please enter a value greater than 0.");
       }
-      
       let valueInWei;
       try {
         if (formData.value.length > 15) {
@@ -138,18 +150,16 @@ export default function TxComposerSDK({ onNavigate = () => {} }) {
       } catch (e) {
         throw new Error(`Invalid value format: ${formData.value}. ${e.message}`);
       }
-      
       const result = await createSafeTx({
         to: formData.to,
         value: valueInWei,
         data: formData.data
       });
-      
       setTxData(result);
-      setStatus('✅ Transaction created! Ready for signing.');
+      setCreateStatus('✅ Transaction created! Ready for signing.');
     } catch (err) {
-      setError(`Failed to create: ${err.message}`);
-      setStatus('');
+      setCreateError(`Failed to create: ${err.message}`);
+      setCreateStatus('');
     }
     setLoading(false);
   };
@@ -184,69 +194,56 @@ export default function TxComposerSDK({ onNavigate = () => {} }) {
   };
   const handleSignBoth = async () => {
     setLoading(true);
+    setSignError('');
+    setSignStatus('Getting signatures...');
+    setExecuteStatus('');
+    setExecuteError('');
     try {
-      setError('');
-      setStatus('Getting signatures...');
       if (!txData) throw new Error('No transaction data');
       const sigs = [];
-      
-      setStatus('Getting signature from Owner 1...');
+      setSignStatus('Getting signature from Owner 1...');
       const owner1Sig = await getOwner1Signature(txData.safeTxHash);
       sigs.push(owner1Sig);
-      // setStatus('Getting signature from Owner 2...');
-      // console.log(txData.safeTxHash);
-      // const owner2Sig = await getOwner2Signature(txData.safeTxHash);
-      // sigs.push(owner2Sig);
-      // setStatus('Getting signature from TPM...');
-      // const tpmSig = await getTPMSignature(txData.safeTxHash);
-      // console.log('TPM Signature:', tpmSig);
-      // sigs.push(tpmSig);
       try {
         const tpmSig = await getTPMSignature(txData.safeTxHash);
         console.log('TPM Signature:', tpmSig);
         sigs.push(tpmSig);
-        setStatus('✅ Using TPM signature');
+        setSignStatus('✅ Using TPM signature');
       } catch (tpmError) {
-        // console.warn('TPM signing failed, falling back to Owner 2:', tmpError.message);
-        setStatus('⚠️ TPM unavailable, getting signature from Owner 2...');
-        
+        setSignStatus('⚠️ TPM unavailable, getting signature from Owner 2...');
         const owner2Sig = await getOwner2Signature(txData.safeTxHash);
         console.log('Owner 2 Signature (fallback):', owner2Sig);
         sigs.push(owner2Sig);
-        setStatus('✅ Using Owner 2 signature (TPM fallback)');
+        setSignStatus('✅ Using Owner 2 signature (TPM fallback)');
       }
-
-      // Sort signatures as shown above
       const { ethers } = await import('ethers');
       const sigPairs = [];
-      
       for (let i = 0; i < sigs.length; i++) {
         const signerAddress = ethers.utils.recoverAddress(txData.safeTxHash, sigs[i]);
         sigPairs.push({ address: signerAddress, signature: sigs[i] });
       }
-      
       sigPairs.sort((a, b) => a.address.toLowerCase().localeCompare(b.address.toLowerCase()));
       const sortedSignatures = sigPairs.map(pair => pair.signature);
-      
       setSignatures(sortedSignatures);
-      setStatus(`✅ Got ${sigs.length} signatures! Ready to execute.`);
+      setSignStatus(`✅ Got ${sigs.length} signatures! Ready to execute.`);
     } catch (err) {
-      setError(`Failed to sign: ${err.message}`);
-      setStatus('');
+      setSignError(`Failed to sign: ${err.message}`);
+      setSignStatus('');
     }
     setLoading(false);
   };
 
   const handleExecute = async () => {
     setLoading(true);
+    setExecuteError('');
+    setExecuteStatus('Executing transaction...');
     try {
-      setError('');
       if (!signatures.every(sig => typeof sig === 'string' && sig.startsWith('0x') && sig.length >= 132)) {
-        setError('At least one signature is invalid. Please collect both signatures again.');
+        setExecuteError('At least one signature is invalid. Please collect both signatures again.');
+        setExecuteStatus('');
         setLoading(false);
         return;
       }
-      setStatus('Executing transaction...');
       if (!txData || signatures.length === 0) {
         throw new Error('Missing transaction data or signatures');
       }
@@ -256,7 +253,7 @@ export default function TxComposerSDK({ onNavigate = () => {} }) {
         txData.safeTxHash
       );
       const explorerLink = `${SEPOLIA_EXPLORER}/tx/${result.txHash}`;
-      setStatus(`
+      setExecuteStatus(`
 ✅ Transaction executed! 
 Transaction Hash: ${result.txHash}
 
@@ -266,8 +263,8 @@ ${explorerLink}
 Transaction Complete`);
       setTimeout(() => loadSafeInfo(), 2000); // Refresh balance after a delay
     } catch (err) {
-      setError(`Failed to execute: ${err.message}`);
-      setStatus('');
+      setExecuteError(`Failed to execute: ${err.message}`);
+      setExecuteStatus('');
     }
     setLoading(false);
   };
@@ -276,8 +273,12 @@ Transaction Complete`);
     setFormData({ to: '', value: '0.00001', data: '0x' });
     setTxData(null);
     setSignatures([]);
-    setStatus('');
-    setError('');
+    setCreateStatus('');
+    setCreateError('');
+    setSignStatus('');
+    setSignError('');
+    setExecuteStatus('');
+    setExecuteError('');
   };
 
   return (
@@ -292,10 +293,6 @@ Transaction Complete`);
       </div>
 
       <h1 className={styles.title}>Transaction Composer</h1>
-
-      {/* --- Status Messages --- */}
-      {status && <div className={styles.status}>{status}</div>}
-      {error && <div className={styles.error}>{error}</div>}
 
       {/* --- Safe Info Header Card --- */}
       {safeAddress && (
@@ -381,12 +378,15 @@ Transaction Complete`);
             disabled={loading}
           />
         </div>
+        {/* Section-specific status/error for Create */}
+        {createStatus && <div className={styles.status}>{createStatus}</div>}
+        {createError && <div className={styles.error}>{createError}</div>}
         <button 
           className={`${styles.button} ${styles.btnPrimary}`} 
           onClick={handleCreate}
-          disabled={loading || !formData.to || !formData.value}
+          disabled={loading || !formData.to || !formData.value || !!txData}
         >
-          {loading ? 'Creating...' : 'Create Transaction'}
+          {loading && !txData ? 'Creating...' : 'Create Transaction'}
         </button>
       </div>
 
@@ -401,12 +401,15 @@ Transaction Complete`);
             <p><strong>SafeTxHash:</strong> <code>{txData.safeTxHash}</code></p>
             <p><strong>Nonce:</strong> {txData.safeTransactionData.nonce}</p>
           </div>
+          {/* Section-specific status/error for Sign */}
+          {signStatus && <div className={styles.status}>{signStatus}</div>}
+          {signError && <div className={styles.error}>{signError}</div>}
           <button 
             className={`${styles.button} ${styles.btnSuccess}`}
             onClick={handleSignBoth}
-            disabled={signatures.length > 0 || loading}
+            disabled={signatures.length > 0 || loading || !txData}
           >
-            {loading ? 'Signing...' : (signatures.length > 0 ? '✅ Signatures Collected' : 'Get Signatures (Owner1 + Owner2)')}
+            {loading && signatures.length === 0 ? 'Signing...' : (signatures.length > 0 ? '✅ Signatures Collected' : 'Get Signatures (Owner1 + Owner2)')}
           </button>
           {signatures.length > 0 && (
             <div className={styles.signaturesBox}>
@@ -429,10 +432,13 @@ Transaction Complete`);
             Execute Transaction
           </h2>
           <p>Ready to execute with {signatures.length} signatures.</p>
+          {/* Section-specific status/error for Execute */}
+          {executeStatus && <div className={styles.status}>{executeStatus}</div>}
+          {executeError && <div className={styles.error}>{executeError}</div>}
           <button 
             className={`${styles.button} ${styles.btnPrimary}`} 
             onClick={handleExecute}
-            disabled={loading}
+            disabled={loading || signatures.length < 2}
           >
             {loading ? 'Executing...' : 'Execute Transaction On-Chain'}
           </button>
@@ -441,7 +447,7 @@ Transaction Complete`);
 
       {/* --- Actions & Navigation --- */}
       <div className={styles.actionsFooter}>
-        {(txData || status || error) && (
+        {(txData || createStatus || createError || signStatus || signError || executeStatus || executeError) && (
           <button 
             className={`${styles.button} ${styles.btnDanger}`} 
             onClick={handleReset}

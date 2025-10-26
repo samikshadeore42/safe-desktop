@@ -28,7 +28,7 @@ export default function App() {
           </>
         );
       case 'safe-setup':
-        return <SafeSetup />;
+        return <SafeSetup onNavigate={setCurrentPage} />;
       case 'dashboard':
         return <Dashboard safeAddress={safeAddress} chainId={chainId} />;
       case 'hyperindex':
